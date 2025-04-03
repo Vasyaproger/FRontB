@@ -24,8 +24,6 @@ function AdminPanel() {
   const [newPromoCode, setNewPromoCode] = useState({
     code: '',
     discountPercent: '',
-    expiresAt: '',
-    isActive: true,
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [branches, setBranches] = useState([]);
@@ -89,7 +87,7 @@ function AdminPanel() {
       const [branchesRes, categoriesRes, usersRes, promoCodesRes] = await Promise.all([
         fetch(`${baseURL}/branches`, { headers }),
         fetch(`${baseURL}/categories`, { headers }),
-        fetch(`${baseURL}/users`, { headers }), // Предполагаем, что маршрут /users существует
+        fetch(`${baseURL}/users`, { headers }),
         fetch(`${baseURL}/promo-codes`, { headers }),
       ]);
 
@@ -145,7 +143,7 @@ function AdminPanel() {
       const response = await fetch(`${baseURL}/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: username, password }), // Предполагаем, что username это email
+        body: JSON.stringify({ email: username, password }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -383,7 +381,7 @@ function AdminPanel() {
       if (!response.ok) throw new Error('Ошибка добавления промокода');
       const data = await response.json();
       setPromoCodeList([...promoCodeList, data]);
-      setNewPromoCode({ code: '', discountPercent: '', expiresAt: '', isActive: true });
+      setNewPromoCode({ code: '', discountPercent: '' });
       alert('Промокод добавлен!');
     } catch (error) {
       console.error('Ошибка:', error);
@@ -395,8 +393,6 @@ function AdminPanel() {
     setNewPromoCode({
       code: promo.code,
       discountPercent: promo.discount_percent,
-      expiresAt: promo.expires_at ? promo.expires_at.slice(0, 16) : '',
-      isActive: promo.is_active,
     });
     handleDeletePromoCode(promo.id); // Удаляем старый, чтобы заменить новым
   };
@@ -849,19 +845,6 @@ function AdminPanel() {
             value={newPromoCode.discountPercent}
             onChange={(e) => setNewPromoCode({ ...newPromoCode, discountPercent: e.target.value })}
           />
-          <input
-            type="datetime-local"
-            value={newPromoCode.expiresAt}
-            onChange={(e) => setNewPromoCode({ ...newPromoCode, expiresAt: e.target.value })}
-          />
-          <label>
-            Активен:
-            <input
-              type="checkbox"
-              checked={newPromoCode.isActive}
-              onChange={(e) => setNewPromoCode({ ...newPromoCode, isActive: e.target.checked })}
-            />
-          </label>
           <button onClick={handleAddPromoCode}>Добавить промокод</button>
         </div>
         <table className="admin-table">
@@ -869,8 +852,7 @@ function AdminPanel() {
             <tr>
               <th>Код</th>
               <th>Скидка (%)</th>
-              <th>Истекает</th>
-              <th>Активен</th>
+              <th>Создан</th>
               <th>Действия</th>
             </tr>
           </thead>
@@ -879,8 +861,7 @@ function AdminPanel() {
               <tr key={promo.id}>
                 <td>{promo.code}</td>
                 <td>{promo.discount_percent}</td>
-                <td>{promo.expires_at ? new Date(promo.expires_at).toLocaleString() : 'Никогда'}</td>
-                <td>{promo.is_active ? 'Да' : 'Нет'}</td>
+                <td>{new Date(promo.created_at).toLocaleString()}</td>
                 <td>
                   <button className="edit-button" onClick={() => handleEditPromoCode(promo)}>
                     Редактировать

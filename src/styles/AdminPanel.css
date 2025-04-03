@@ -760,3 +760,29 @@
     font-size: 14px;
   }
 }
+.promo-code-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.promo-code-form input[type="text"],
+.promo-code-form input[type="number"] {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.promo-code-form button {
+  background-color: #2ecc71;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.promo-code-form button:hover {
+  background-color: #27ae60;
+}
