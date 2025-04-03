@@ -127,25 +127,20 @@ function Products() {
         throw new Error("Ошибка при загрузке филиалов");
       }
       const data = await response.json();
-
       if (!Array.isArray(data)) {
         throw new Error("Неверный формат данных филиалов");
       }
-
       setBranches(data);
-
       if (data.length === 0) {
         setError("Филиалы не найдены");
         setIsBranchModalOpen(true);
         return;
       }
-
       if (selectedBranch && !data.some(branch => branch.id === parseInt(selectedBranch))) {
         setSelectedBranch(null);
         localStorage.removeItem("selectedBranch");
         setIsBranchModalOpen(true);
       }
-
       if (!selectedBranch) {
         setIsBranchModalOpen(true);
       }
@@ -169,11 +164,9 @@ function Products() {
           throw new Error("Ошибка при загрузке продуктов");
         }
         const data = await response.json();
-
         if (!Array.isArray(data)) {
           throw new Error("Неверный формат данных продуктов");
         }
-
         setProducts(data);
         const groupedItems = data.reduce((acc, product) => {
           acc[product.category] = acc[product.category] || [];
@@ -201,7 +194,7 @@ function Products() {
     };
 
     fetchProducts();
-    const interval = setInterval(fetchProducts, 30000);
+    const interval = setInterval(fetchProducts, 30000); // Обновление каждые 30 секунд
     return () => clearInterval(interval);
   }, [selectedBranch]);
 
@@ -554,7 +547,7 @@ function Products() {
                 >
                   <LazyImage
                     className="best-seller-product-image"
-                    src={`https://nukesul-brepb-651f.twc1.net${product.image_url}`}
+                    src={`${baseURL}${product.image_url}`} // Обновлено для правильного пути к изображению
                     alt={product.name}
                     placeholder={`data:image/svg+xml,${encodeURIComponent(jpgPlaceholder)}`}
                   />
@@ -629,7 +622,7 @@ function Products() {
                       >
                         <LazyImage
                           className="menu-product-image"
-                          src={`https://nukesul-brepb-651f.twc1.net${product.image_url}`}
+                          src={`${baseURL}${product.image_url}`} // Обновлено для правильного пути к изображению
                           alt={product.name}
                           placeholder={`data:image/svg+xml,${encodeURIComponent(jpgPlaceholder)}`}
                         />
@@ -671,7 +664,7 @@ function Products() {
             </button>
             <div className="modal-body">
               <img
-                src={`https://nukesul-brepb-651f.twc1.net${selectedProduct.product.image_url}`}
+                src={`${baseURL}${selectedProduct.product.image_url}`} // Обновлено для правильного пути к изображению
                 alt={selectedProduct.product.name}
                 className="modal-image"
               />
@@ -747,7 +740,7 @@ function Products() {
               const discountedPrice = calculateDiscountedPrice(price).toFixed(2);
               return (
                 <div key={item.id} className="order-item">
-                  <img src={`https://nukesul-brepb-651f.twc1.net${item.image}`} alt={item.name} />
+                  <img src={`${baseURL}${item.image}`} alt={item.name} /> {/* Обновлено для правильного пути */}
                   <div className="order-item-info">
                     <h3>{item.name}</h3>
                     {discount > 0 ? (
