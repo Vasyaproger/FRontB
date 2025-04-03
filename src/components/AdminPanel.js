@@ -1,20 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import '../styles/AdminPanel.css';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import "../styles/AdminPanel.css";
 
 function AdminPanel() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState([]);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [image, setImage] = useState(null);
-  const [categoryId, setCategoryId] = useState('');
-  const [subCategoryId, setSubCategoryId] = useState('');
-  const [priceSmall, setPriceSmall] = useState('');
-  const [priceMedium, setPriceMedium] = useState('');
-  const [priceLarge, setPriceLarge] = useState('');
-  const [priceSingle, setPriceSingle] = useState('');
-  const [priceFieldsCount, setPriceFieldsCount] = useState(1); // По умолчанию 1 для всех категорий
+  const [categoryId, setCategoryId] = useState("");
+  const [subCategoryId, setSubCategoryId] = useState("");
+  const [priceSmall, setPriceSmall] = useState("");
+  const [priceMedium, setPriceMedium] = useState("");
+  const [priceLarge, setPriceLarge] = useState("");
+  const [priceSingle, setPriceSingle] = useState("");
+  const [priceFieldsCount, setPriceFieldsCount] = useState(1);
   const [products, setProducts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -23,14 +23,14 @@ function AdminPanel() {
   const [userDiscounts, setUserDiscounts] = useState({});
   const [promoCodeList, setPromoCodeList] = useState([]);
   const [stories, setStories] = useState([]);
-const [newStoryImage, setNewStoryImage] = useState(null);
-const [newStoryImagePreview, setNewStoryImagePreview] = useState(null);
-const [isStoryEditMode, setIsStoryEditMode] = useState(false);
-const [editingStoryId, setEditingStoryId] = useState(null);
+  const [newStoryImage, setNewStoryImage] = useState(null);
+  const [newStoryImagePreview, setNewStoryImagePreview] = useState(null);
+  const [isStoryEditMode, setIsStoryEditMode] = useState(false);
+  const [editingStoryId, setEditingStoryId] = useState(null);
   const [newPromoCode, setNewPromoCode] = useState({
-    code: '',
-    discountPercent: '',
-    expiresAt: '',
+    code: "",
+    discountPercent: "",
+    expiresAt: "",
     isActive: true,
   });
   const [imagePreview, setImagePreview] = useState(null);
@@ -41,88 +41,101 @@ const [editingStoryId, setEditingStoryId] = useState(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [currentBranch, setCurrentBranch] = useState(null);
   const [currentCategory, setCurrentCategory] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [branchFormData, setBranchFormData] = useState({
-    name: '',
-    address: '',
-    phone: '',
+    name: "",
+    address: "",
+    phone: "",
   });
   const [categoryFormData, setCategoryFormData] = useState({
-    name: '',
+    name: "",
   });
 
   const formRef = useRef(null);
   const navigate = useNavigate();
   const baseURL = "https://nukesul-brepb-651f.twc1.net";
 
-  // Проверка токена при загрузке
   useEffect(() => {
     const verifyToken = async () => {
-      const storedToken = localStorage.getItem('token');
+      const storedToken = localStorage.getItem("token");
       if (!storedToken) {
         setIsAuthenticated(false);
-        navigate('/admin-login');
+        navigate("/admin-login");
         return;
       }
       try {
         const response = await fetch(`${baseURL}/products`, {
-          headers: { 'Authorization': `Bearer ${storedToken}` },
+          headers: { Authorization: `Bearer ${storedToken}` },
         });
-        if (!response.ok) throw new Error('Токен недействителен');
+        if (!response.ok) throw new Error("Токен недействителен");
         setIsAuthenticated(true);
         setToken(storedToken);
-        fetchInitialData(storedToken);
+        await fetchInitialData(storedToken);
       } catch (err) {
-        console.error('Ошибка проверки токена:', err);
+        console.error("Ошибка проверки токена:", err);
         setIsAuthenticated(false);
-        localStorage.removeItem('token');
-        setToken('');
-        setError('Токен недействителен. Войдите снова.');
-        navigate('/admin-login');
+        localStorage.removeItem("token");
+        setToken("");
+        setError("Токен недействителен. Войдите снова.");
+        navigate("/admin-login");
       }
     };
     verifyToken();
   }, [navigate]);
 
-  // Загрузка начальных данных
   const fetchInitialData = async (authToken) => {
     try {
-      const headers = { 'Authorization': `Bearer ${authToken}` };
-      const [branchesRes, categoriesRes, usersRes, promoCodesRes] = await Promise.all([
+      const headers = { Authorization: `Bearer ${authToken}` };
+      const [
+        branchesRes,
+        categoriesRes,
+        usersRes,
+        promoCodesRes,
+        storiesRes
+      ] = await Promise.all([
         fetch(`${baseURL}/branches`, { headers }),
         fetch(`${baseURL}/categories`, { headers }),
         fetch(`${baseURL}/users`, { headers }),
         fetch(`${baseURL}/promo-codes`, { headers }),
-        fetch(`${baseURL}/stories`, { headers }),
+        fetch(`${baseURL}/stories`, { headers })
       ]);
-
-      if (!branchesRes.ok || !categoriesRes.ok) throw new Error('Ошибка загрузки данных');
 
       const branchesData = await branchesRes.json();
       const categoriesData = await categoriesRes.json();
-      const usersData = usersRes.ok ? await usersRes.json() : [];
-      const promoCodesData = promoCodesRes.ok ? await promoCodesRes.json() : [];
-      const storiesData = storiesRes.ok ? await storiesRes.json() : [];
+      const usersData = await usersRes.json();
+      const promoCodesData = await promoCodesRes.json();
+      const storiesData = await storiesRes.json();
+
+      if (!branchesRes.ok) throw new Error("Ошибка загрузки филиалов");
+      if (!categoriesRes.ok) throw new Error("Ошибка загрузки категорий");
+      if (!usersRes.ok) throw new Error("Ошибка загрузки пользователей");
+      if (!promoCodesRes.ok) throw new Error("Ошибка загрузки промокодов");
+      if (!storiesRes.ok) throw new Error("Ошибка загрузки историй");
 
       setBranches(Array.isArray(branchesData) ? branchesData : []);
       setSelectedBranch(branchesData[0]?.id || null);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-      setUsers(Array.isArray(usersData) ? usersData.map(u => ({
-        user_id: u.id,
-        first_name: u.name,
-        email: u.email,
-      })) : []);
+      setUsers(
+        Array.isArray(usersData)
+          ? usersData.map((u) => ({
+              user_id: u.id,
+              first_name: u.name,
+              email: u.email,
+            }))
+          : []
+      );
       setPromoCodeList(Array.isArray(promoCodesData) ? promoCodesData : []);
-      setStories(Array.isArray(storiesData) ? storiesData : []); // Сохраняем истории
+      setStories(Array.isArray(storiesData) ? storiesData : []);
     } catch (error) {
-      console.error('Ошибка загрузки данных:', error);
-      setError('Не удалось загрузить данные');
+      console.error("Ошибка загрузки данных:", error);
+      setError(error.message || "Не удалось загрузить данные");
     }
   };
+
   const handleStoryImageChange = (e) => {
     const file = e.target.files[0];
     setNewStoryImage(file);
@@ -134,142 +147,145 @@ const [editingStoryId, setEditingStoryId] = useState(null);
       setNewStoryImagePreview(null);
     }
   };
-  // Сброс формы
-const resetStoryForm = () => {
-  setNewStoryImage(null);
-  setNewStoryImagePreview(null);
-  setIsStoryEditMode(false);
-  setEditingStoryId(null);
-};
 
-// Добавление или обновление истории
-const handleStorySubmit = async (e) => {
-  e.preventDefault();
+  const resetStoryForm = () => {
+    setNewStoryImage(null);
+    setNewStoryImagePreview(null);
+    setIsStoryEditMode(false);
+    setEditingStoryId(null);
+  };
 
-  if (!newStoryImage && !isStoryEditMode) {
-    alert('Пожалуйста, выберите изображение!');
-    return;
-  }
+  const handleStorySubmit = async (e) => {
+    e.preventDefault();
 
-  const formData = new FormData();
-  if (newStoryImage) {
-    formData.append('image', newStoryImage);
-  }
-
-  try {
-    const url = isStoryEditMode ? `${baseURL}/stories/${editingStoryId}` : `${baseURL}/stories`;
-    const method = isStoryEditMode ? 'PUT' : 'POST';
-
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Ошибка при сохранении истории');
+    if (!newStoryImage && !isStoryEditMode) {
+      alert("Пожалуйста, выберите изображение!");
+      return;
     }
 
-    const updatedStory = await response.json();
-    if (isStoryEditMode) {
-      setStories(stories.map((story) => (story.id === editingStoryId ? updatedStory : story)));
-      alert('История обновлена!');
-    } else {
-      setStories([...stories, updatedStory]);
-      alert('История добавлена!');
+    const formData = new FormData();
+    if (newStoryImage) {
+      formData.append("image", newStoryImage);
     }
-    resetStoryForm();
-  } catch (error) {
-    console.error('Ошибка при сохранении истории:', error);
-    alert(error.message || 'Произошла ошибка при сохранении истории');
-  }
-};
 
-// Редактирование истории
-const handleEditStory = (story) => {
-  setIsStoryEditMode(true);
-  setEditingStoryId(story.id);
-  setNewStoryImage(null);
-  setNewStoryImagePreview(story.image);
-};
+    try {
+      const url = isStoryEditMode
+        ? `${baseURL}/stories/${editingStoryId}`
+        : `${baseURL}/stories`;
+      const method = isStoryEditMode ? "PUT" : "POST";
 
-// Удаление истории
-const handleDeleteStory = async (storyId) => {
-  if (!window.confirm('Вы уверены, что хотите удалить эту историю?')) return;
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
-  try {
-    const response = await fetch(`${baseURL}/stories/${storyId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!response.ok) throw new Error('Ошибка удаления истории');
-    setStories(stories.filter((s) => s.id !== storyId));
-    alert('История удалена!');
-  } catch (error) {
-    console.error('Ошибка при удалении истории:', error);
-    alert('Произошла ошибка при удалении истории');
-  }
-};
-  // Загрузка продуктов для выбранного филиала
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Ошибка при сохранении истории");
+      }
+
+      const updatedStory = await response.json();
+      if (isStoryEditMode) {
+        setStories(
+          stories.map((story) =>
+            story.id === editingStoryId ? updatedStory : story
+          )
+        );
+        alert("История обновлена!");
+      } else {
+        setStories([...stories, updatedStory]);
+        alert("История добавлена!");
+      }
+      resetStoryForm();
+    } catch (error) {
+      console.error("Ошибка при сохранении истории:", error);
+      alert(error.message || "Произошла ошибка при сохранении истории");
+    }
+  };
+
+  const handleEditStory = (story) => {
+    setIsStoryEditMode(true);
+    setEditingStoryId(story.id);
+    setNewStoryImage(null);
+    setNewStoryImagePreview(story.image);
+  };
+
+  const handleDeleteStory = async (storyId) => {
+    if (!window.confirm("Вы уверены, что хотите удалить эту историю?")) return;
+
+    try {
+      const response = await fetch(`${baseURL}/stories/${storyId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Ошибка удаления истории");
+      setStories(stories.filter((s) => s.id !== storyId));
+      alert("История удалена!");
+    } catch (error) {
+      console.error("Ошибка при удалении истории:", error);
+      alert("Произошла ошибка при удалении истории");
+    }
+  };
+
   useEffect(() => {
     if (!selectedBranch || !isAuthenticated || !token) return;
 
     const fetchProducts = async () => {
       try {
         const response = await fetch(`${baseURL}/products`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
-        if (!response.ok) throw new Error('Ошибка загрузки продуктов');
+        if (!response.ok) throw new Error("Ошибка загрузки продуктов");
         const data = await response.json();
-        const branchProducts = data.filter(p => p.branch_id === selectedBranch);
+        const branchProducts = data.filter(
+          (p) => p.branch_id === selectedBranch
+        );
         setProducts(Array.isArray(branchProducts) ? branchProducts : []);
       } catch (error) {
-        console.error('Ошибка загрузки продуктов:', error);
+        console.error("Ошибка загрузки продуктов:", error);
+        setError("Не удалось загрузить продукты");
       }
     };
 
     fetchProducts();
   }, [selectedBranch, isAuthenticated, token]);
 
-  // Вход администратора
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       const response = await fetch(`${baseURL}/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: username, password }),
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка входа');
+        throw new Error(errorData.error || "Ошибка входа");
       }
       const data = await response.json();
       setToken(data.token);
-      localStorage.setItem('token', data.token);
+      localStorage.setItem("token", data.token);
       setIsAuthenticated(true);
       setError(null);
-      fetchInitialData(data.token);
-      setUsername('');
-      setPassword('');
+      await fetchInitialData(data.token);
+      setUsername("");
+      setPassword("");
     } catch (error) {
-      console.error('Ошибка входа:', error);
+      console.error("Ошибка входа:", error);
       setError(error.message);
     }
   };
 
-  // Выход администратора
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    setToken('');
+    localStorage.removeItem("token");
+    setToken("");
     setIsAuthenticated(false);
-    navigate('/admin-login');
+    navigate("/admin-login");
   };
 
-  // Обработка изображения
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     setImage(file);
@@ -282,46 +298,44 @@ const handleDeleteStory = async (storyId) => {
     }
   };
 
-  // Обработка изменения категории
   const handleCategoryChange = (e) => {
     setCategoryId(e.target.value);
-    setSubCategoryId('');
+    setSubCategoryId("");
     resetPriceFields();
-    setPriceFieldsCount(1); // Сбрасываем на 1 при смене категории
+    setPriceFieldsCount(1);
   };
 
   const resetFormFields = () => {
-    setName('');
-    setDescription('');
+    setName("");
+    setDescription("");
     setImage(null);
     setImagePreview(null);
-    setCategoryId('');
-    setSubCategoryId('');
+    setCategoryId("");
+    setSubCategoryId("");
     resetPriceFields();
-    setPriceFieldsCount(1); // Сбрасываем на 1 по умолчанию
+    setPriceFieldsCount(1);
   };
 
   const resetPriceFields = () => {
-    setPriceSmall('');
-    setPriceMedium('');
-    setPriceLarge('');
-    setPriceSingle('');
+    setPriceSmall("");
+    setPriceMedium("");
+    setPriceLarge("");
+    setPriceSingle("");
   };
 
-  // Управление филиалами
   const openBranchModal = (branch = null) => {
     setCurrentBranch(branch);
     if (branch) {
       setBranchFormData({
         name: branch.name,
-        address: branch.address || '',
-        phone: branch.phone || '',
+        address: branch.address || "",
+        phone: branch.phone || "",
       });
     } else {
       setBranchFormData({
-        name: '',
-        address: '',
-        phone: '',
+        name: "",
+        address: "",
+        phone: "",
       });
     }
     setIsBranchModalOpen(true);
@@ -339,20 +353,22 @@ const handleDeleteStory = async (storyId) => {
 
   const saveBranch = async () => {
     try {
-      const method = currentBranch ? 'PUT' : 'POST';
-      const url = currentBranch ? `${baseURL}/branches/${currentBranch.id}` : `${baseURL}/branches`;
+      const method = currentBranch ? "PUT" : "POST";
+      const url = currentBranch
+        ? `${baseURL}/branches/${currentBranch.id}`
+        : `${baseURL}/branches`;
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(branchFormData),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка сохранения филиала');
+        throw new Error(errorData.error || "Ошибка сохранения филиала");
       }
 
       const data = await response.json();
@@ -363,32 +379,31 @@ const handleDeleteStory = async (storyId) => {
         if (!selectedBranch) setSelectedBranch(data.id);
       }
       closeBranchModal();
-      alert('Филиал успешно сохранён!');
+      alert("Филиал успешно сохранён!");
     } catch (error) {
-      console.error('Ошибка:', error);
-      alert(error.message || 'Ошибка при сохранении филиала');
+      console.error("Ошибка:", error);
+      alert(error.message || "Ошибка при сохранении филиала");
     }
   };
 
   const deleteBranch = async (id) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этот филиал?')) return;
+    if (!window.confirm("Вы уверены, что хотите удалить этот филиал?")) return;
 
     try {
       const response = await fetch(`${baseURL}/branches/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Ошибка удаления филиала');
+      if (!response.ok) throw new Error("Ошибка удаления филиала");
       setBranches(branches.filter((b) => b.id !== id));
       if (selectedBranch === id) setSelectedBranch(branches[0]?.id || null);
-      alert('Филиал успешно удалён!');
+      alert("Филиал успешно удалён!");
     } catch (error) {
-      console.error('Ошибка:', error);
-      alert('Ошибка при удалении филиала');
+      console.error("Ошибка:", error);
+      alert("Ошибка при удалении филиала");
     }
   };
 
-  // Управление категориями
   const openCategoryModal = (category = null) => {
     setCurrentCategory(category);
     if (category) {
@@ -397,7 +412,7 @@ const handleDeleteStory = async (storyId) => {
       });
     } else {
       setCategoryFormData({
-        name: '',
+        name: "",
       });
     }
     setIsCategoryModalOpen(true);
@@ -415,20 +430,22 @@ const handleDeleteStory = async (storyId) => {
 
   const saveCategory = async () => {
     try {
-      const method = currentCategory ? 'PUT' : 'POST';
-      const url = currentCategory ? `${baseURL}/categories/${currentCategory.id}` : `${baseURL}/categories`;
+      const method = currentCategory ? "PUT" : "POST";
+      const url = currentCategory
+        ? `${baseURL}/categories/${currentCategory.id}`
+        : `${baseURL}/categories`;
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(categoryFormData),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка сохранения категории');
+        throw new Error(errorData.error || "Ошибка сохранения категории");
       }
 
       const data = await response.json();
@@ -438,54 +455,59 @@ const handleDeleteStory = async (storyId) => {
         setCategories([...categories, data]);
       }
       closeCategoryModal();
-      alert('Категория успешно сохранена!');
+      alert("Категория успешно сохранена!");
     } catch (error) {
-      console.error('Ошибка:', error);
-      alert(error.message || 'Ошибка при сохранении категории');
+      console.error("Ошибка:", error);
+      alert(error.message || "Ошибка при сохранении категории");
     }
   };
 
   const deleteCategory = async (id) => {
-    if (!window.confirm('Вы уверены, что хотите удалить эту категорию?')) return;
+    if (!window.confirm("Вы уверены, что хотите удалить эту категорию?"))
+      return;
 
     try {
       const response = await fetch(`${baseURL}/categories/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Ошибка удаления категории');
+      if (!response.ok) throw new Error("Ошибка удаления категории");
       setCategories(categories.filter((c) => c.id !== id));
-      alert('Категория успешно удалена!');
+      alert("Категория успешно удалена!");
     } catch (error) {
-      console.error('Ошибка:', error);
-      alert('Ошибка при удалении категории');
+      console.error("Ошибка:", error);
+      alert("Ошибка при удалении категории");
     }
   };
 
-  // Управление промокодами
   const handleAddPromoCode = async () => {
     if (!newPromoCode.code || !newPromoCode.discountPercent) {
-      alert('Введите код и процент скидки!');
+      alert("Введите код и процент скидки!");
       return;
     }
 
     try {
       const response = await fetch(`${baseURL}/promo-codes`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(newPromoCode),
       });
-      if (!response.ok) throw new Error('Ошибка добавления промокода');
+      if (!response.ok) throw new Error("Ошибка добавления промокода");
       const data = await response.json();
       setPromoCodeList([...promoCodeList, data]);
-      setNewPromoCode({ code: '', discountPercent: '', expiresAt: '', isActive: true });
-      alert('Промокод добавлен!');
+      setNewPromoCode({
+        code: "",
+        discountPercent: "",
+        expiresAt: "",
+        isActive: true,
+      });
+      alert("Промокод добавлен!");
     } catch (error) {
-      console.error('Ошибка:', error);
-      alert('Ошибка при добавлении промокода');
+      console.error("Ошибка:", error);
+      alert("Ошибка при добавлении промокода");
     }
   };
 
@@ -493,151 +515,154 @@ const handleDeleteStory = async (storyId) => {
     setNewPromoCode({
       code: promo.code,
       discountPercent: promo.discount_percent,
-      expiresAt: promo.expires_at ? promo.expires_at.slice(0, 16) : '',
+      expiresAt: promo.expires_at ? promo.expires_at.slice(0, 16) : "",
       isActive: promo.is_active,
     });
-    handleDeletePromoCode(promo.id); // Удаляем старый, чтобы заменить новым
+    handleDeletePromoCode(promo.id);
   };
 
   const handleDeletePromoCode = async (id) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этот промокод?')) return;
+    if (!window.confirm("Вы уверены, что хотите удалить этот промокод?"))
+      return;
 
     try {
       const response = await fetch(`${baseURL}/promo-codes/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Ошибка удаления промокода');
+      if (!response.ok) throw new Error("Ошибка удаления промокода");
       setPromoCodeList(promoCodeList.filter((p) => p.id !== id));
-      alert('Промокод удалён!');
+      alert("Промокод удалён!");
     } catch (error) {
-      console.error('Ошибка:', error);
-      alert('Ошибка при удалении промокода');
+      console.error("Ошибка:", error);
+      alert("Ошибка при удалении промокода");
     }
   };
 
-  // Удаление продукта
   const handleDelete = async (productId) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этот продукт?')) return;
+    if (!window.confirm("Вы уверены, что хотите удалить этот продукт?")) return;
 
     try {
       const response = await fetch(`${baseURL}/products/${productId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Ошибка удаления продукта');
+      if (!response.ok) throw new Error("Ошибка удаления продукта");
       setProducts((prev) => prev.filter((p) => p.id !== productId));
-      alert('Продукт успешно удалён!');
+      alert("Продукт успешно удалён!");
     } catch (error) {
-      console.error('Ошибка при удалении:', error);
-      alert('Произошла ошибка при удалении продукта');
+      console.error("Ошибка при удалении:", error);
+      alert("Произошла ошибка при удалении продукта");
     }
   };
 
-  // Сохранение продукта
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     if (!selectedBranch) {
-      alert('Пожалуйста, выберите филиал!');
+      alert("Пожалуйста, выберите филиал!");
       setIsSubmitting(false);
       return;
     }
 
     const formData = new FormData();
-    formData.append('name', name);
-    formData.append('description', description);
-    formData.append('branchId', selectedBranch);
-    formData.append('categoryId', categoryId);
-    formData.append('subCategoryId', subCategoryId || '');
-    formData.append('priceSmall', priceSmall || '');
-    formData.append('priceMedium', priceMedium || '');
-    formData.append('priceLarge', priceLarge || '');
-    formData.append('priceSingle', priceSingle || '');
-    if (image) formData.append('image', image);
+    formData.append("name", name);
+    formData.append("description", description);
+    formData.append("branchId", selectedBranch);
+    formData.append("categoryId", categoryId);
+    formData.append("subCategoryId", subCategoryId || "");
+    formData.append("priceSmall", priceSmall || "");
+    formData.append("priceMedium", priceMedium || "");
+    formData.append("priceLarge", priceLarge || "");
+    formData.append("priceSingle", priceSingle || "");
+    if (image) formData.append("image", image);
 
     if (!name) {
-      alert('Введите название продукта!');
+      alert("Введите название продукта!");
       setIsSubmitting(false);
       return;
     }
     if (!categoryId) {
-      alert('Выберите категорию!');
+      alert("Выберите категорию!");
       setIsSubmitting(false);
       return;
     }
 
     if (priceFieldsCount >= 1 && !priceSmall && !editMode) {
-      alert('Укажите цену для маленького размера!');
+      alert("Укажите цену для маленького размера!");
       setIsSubmitting(false);
       return;
     }
     if (priceFieldsCount >= 2 && !priceMedium && !editMode) {
-      alert('Укажите цену для среднего размера!');
+      alert("Укажите цену для среднего размера!");
       setIsSubmitting(false);
       return;
     }
     if (priceFieldsCount >= 3 && !priceLarge && !editMode) {
-      alert('Укажите цену для большого размера!');
+      alert("Укажите цену для большого размера!");
       setIsSubmitting(false);
       return;
     }
 
     if (!image && !editMode) {
-      alert('Загрузите изображение!');
+      alert("Загрузите изображение!");
       setIsSubmitting(false);
       return;
     }
 
     try {
-      const url = editMode ? `${baseURL}/products/${editingProductId}` : `${baseURL}/products`;
-      const method = editMode ? 'PUT' : 'POST';
+      const url = editMode
+        ? `${baseURL}/products/${editingProductId}`
+        : `${baseURL}/products`;
+      const method = editMode ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка при сохранении продукта');
+        throw new Error(errorData.error || "Ошибка при сохранении продукта");
       }
 
       const newProduct = await response.json();
       if (editMode) {
-        setProducts((prev) => prev.map((p) => (p.id === editingProductId ? newProduct : p)));
-        alert('Продукт обновлён!');
+        setProducts((prev) =>
+          prev.map((p) => (p.id === editingProductId ? newProduct : p))
+        );
+        alert("Продукт обновлён!");
       } else {
         setProducts((prev) => [...prev, newProduct]);
-        alert('Продукт добавлен!');
+        alert("Продукт добавлен!");
       }
       resetFormFields();
       setEditMode(false);
       setEditingProductId(null);
     } catch (error) {
-      console.error('Ошибка запроса:', error);
-      alert(error.message || 'Произошла ошибка при сохранении продукта');
+      console.error("Ошибка запроса:", error);
+      alert(error.message || "Произошла ошибка при сохранении продукта");
     }
 
     setIsSubmitting(false);
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Вы уверены, что хотите удалить пользователя?')) return;
+    if (!window.confirm("Вы уверены, что хотите удалить пользователя?")) return;
 
     try {
       const response = await fetch(`${baseURL}/users/${userId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Ошибка удаления пользователя');
+      if (!response.ok) throw new Error("Ошибка удаления пользователя");
       setUsers((prev) => prev.filter((u) => u.user_id !== userId));
-      alert('Пользователь удалён!');
+      alert("Пользователь удалён!");
     } catch (error) {
-      console.error('Ошибка удаления:', error);
-      alert('Произошла ошибка');
+      console.error("Ошибка удаления:", error);
+      alert("Произошла ошибка");
     }
   };
 
@@ -648,27 +673,27 @@ const handleDeleteStory = async (storyId) => {
   const handleSendPromoCode = async (userId) => {
     const discount = userDiscounts[userId];
     if (!discount || discount < 1 || discount > 100) {
-      alert('Введите скидку от 1 до 100!');
+      alert("Введите скидку от 1 до 100!");
       return;
     }
 
     try {
       const response = await fetch(`${baseURL}/users/${userId}/promo`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ discount: parseInt(discount, 10) }),
       });
-      if (!response.ok) throw new Error('Ошибка отправки промокода');
+      if (!response.ok) throw new Error("Ошибка отправки промокода");
       const data = await response.json();
       setPromoCodes((prev) => ({ ...prev, [userId]: data.promoCode }));
-      setUserDiscounts((prev) => ({ ...prev, [userId]: '' }));
+      setUserDiscounts((prev) => ({ ...prev, [userId]: "" }));
       alert(`Промокод отправлен: ${data.promoCode}`);
     } catch (error) {
-      console.error('Ошибка промокода:', error);
-      alert('Ошибка при отправке промокода');
+      console.error("Ошибка промокода:", error);
+      alert("Ошибка при отправке промокода");
     }
   };
 
@@ -676,13 +701,13 @@ const handleDeleteStory = async (storyId) => {
     setEditMode(true);
     setEditingProductId(product.id);
     setName(product.name);
-    setDescription(product.description || '');
+    setDescription(product.description || "");
     setCategoryId(product.category_id);
-    setSubCategoryId(product.sub_category_id || '');
-    setPriceSmall(product.price_small || '');
-    setPriceMedium(product.price_medium || '');
-    setPriceLarge(product.price_large || '');
-    setPriceSingle(product.price_single || '');
+    setSubCategoryId(product.sub_category_id || "");
+    setPriceSmall(product.price_small || "");
+    setPriceMedium(product.price_medium || "");
+    setPriceLarge(product.price_large || "");
+    setPriceSingle(product.price_single || "");
     setImage(null);
     setImagePreview(product.image);
 
@@ -690,10 +715,10 @@ const handleDeleteStory = async (storyId) => {
     if (product.price_small) count++;
     if (product.price_medium) count++;
     if (product.price_large) count++;
-    setPriceFieldsCount(count || 1); // Устанавливаем количество цен, минимум 1
+    setPriceFieldsCount(count || 1);
 
     if (formRef.current) {
-      formRef.current.scrollIntoView({ behavior: 'smooth' });
+      formRef.current.scrollIntoView({ behavior: "smooth" });
     }
   };
 
@@ -702,82 +727,10 @@ const handleDeleteStory = async (storyId) => {
       user.first_name.toLowerCase().includes(searchQuery.toLowerCase())
     );
     return (
-      <div className="stories-section">
-        <h2>Истории</h2>
-        <form onSubmit={handleStorySubmit} className="story-form">
-          <h3>{isStoryEditMode ? 'Редактировать историю' : 'Добавить новую историю'}</h3>
-          <div>
-            <label>Изображение:</label>
-            {newStoryImagePreview && (
-              <div className="image-preview-container">
-                <img
-                  src={newStoryImagePreview}
-                  alt="Превью"
-                  className="image-preview"
-                  style={{ maxWidth: '200px', borderRadius: '8px', margin: '10px 0' }}
-                />
-              </div>
-            )}
-            <input
-              type="file"
-              onChange={handleStoryImageChange}
-              accept="image/*"
-              required={!isStoryEditMode}
-            />
-          </div>
-          <button type="submit" className="submit-button">
-            {isStoryEditMode ? 'Обновить' : 'Добавить'}
-          </button>
-          {isStoryEditMode && (
-            <button
-              type="button"
-              onClick={resetStoryForm}
-              className="cancel-button"
-              style={{ marginLeft: '10px' }}
-            >
-              Отмена
-            </button>
-          )}
-        </form>
-  
-        <div className="stories-list">
-          <h3>Список историй</h3>
-          {stories.length > 0 ? (
-            <div className="story-cards">
-              {stories.map((story) => (
-                <div key={story.id} className="story-card">
-                  <img
-                    src={story.image}
-                    alt="История"
-                    className="story-image"
-                    style={{ maxWidth: '150px', borderRadius: '8px' }}
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/150?text=Image+Not+Found';
-                    }}
-                  />
-                  <p>Создано: {new Date(story.created_at).toLocaleString()}</p>
-                  <div className="story-buttons">
-                    <button className="edit-button" onClick={() => handleEditStory(story)}>
-                      Редактировать
-                    </button>
-                    <button className="delete-button" onClick={() => handleDeleteStory(story.id)}>
-                      Удалить
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p>Истории отсутствуют</p>
-          )}
-        </div>
-      </div>
-    );
-    return (
-      
       <div className="users-section">
         <h2>
-          Пользователи <span className="user-count">({filteredUsers.length})</span>
+          Пользователи{" "}
+          <span className="user-count">({filteredUsers.length})</span>
         </h2>
         <input
           type="text"
@@ -820,9 +773,9 @@ const handleDeleteStory = async (storyId) => {
             onChange={(e) => {
               const count = parseInt(e.target.value);
               setPriceFieldsCount(count);
-              if (count < 3) setPriceLarge('');
-              if (count < 2) setPriceMedium('');
-              if (count === 1) setPriceSingle(priceSmall || ''); // Переносим маленькую цену в priceSingle, если выбрана 1 цена
+              if (count < 3) setPriceLarge("");
+              if (count < 2) setPriceMedium("");
+              if (count === 1) setPriceSingle(priceSmall || "");
             }}
           >
             <option value={1}>1 размер</option>
@@ -880,82 +833,179 @@ const handleDeleteStory = async (storyId) => {
 
   const renderBranchesSection = () => {
     return (
-      <div className="branches-section">
-        <h2>Филиалы</h2>
-        <button className="add-button" onClick={() => openBranchModal()}>
-          Добавить филиал
-        </button>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Название</th>
-              <th>Адрес</th>
-              <th>Телефон</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {branches.map((branch) => (
-              <tr key={branch.id}>
-                <td>{branch.name}</td>
-                <td>{branch.address || 'Нет'}</td>
-                <td>{branch.phone || 'Нет'}</td>
-                <td>
-                  <button className="edit-button" onClick={() => openBranchModal(branch)}>
-                    Редактировать
-                  </button>
-                  <button className="delete-button" onClick={() => deleteBranch(branch.id)}>
-                    Удалить
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div>
+        <div className="stories-section">
+          <h2>Истории</h2>
+          <form onSubmit={handleStorySubmit} className="story-form">
+            <h3>
+              {isStoryEditMode
+                ? "Редактировать историю"
+                : "Добавить новую историю"}
+            </h3>
+            <div>
+              <label>Изображение:</label>
+              {newStoryImagePreview && (
+                <div className="image-preview-container">
+                  <img
+                    src={newStoryImagePreview}
+                    alt="Превью"
+                    className="image-preview"
+                    style={{
+                      maxWidth: "200px",
+                      borderRadius: "8px",
+                      margin: "10px 0",
+                    }}
+                  />
+                </div>
+              )}
+              <input
+                type="file"
+                onChange={handleStoryImageChange}
+                accept="image/*"
+                required={!isStoryEditMode}
+              />
+            </div>
+            <button type="submit" className="submit-button">
+              {isStoryEditMode ? "Обновить" : "Добавить"}
+            </button>
+            {isStoryEditMode && (
+              <button
+                type="button"
+                onClick={resetStoryForm}
+                className="cancel-button"
+                style={{ marginLeft: "10px" }}
+              >
+                Отмена
+              </button>
+            )}
+          </form>
 
-        {isBranchModalOpen && (
-          <div className="modal">
-            <div className="modal-content">
-              <h3>{currentBranch ? 'Редактировать филиал' : 'Добавить филиал'}</h3>
-              <div className="form-group">
-                <label>Название:</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={branchFormData.name}
-                  onChange={handleBranchInputChange}
-                  required
-                />
+          <div className="stories-list">
+            <h3>Список историй</h3>
+            {stories.length > 0 ? (
+              <div className="story-cards">
+                {stories.map((story) => (
+                  <div key={story.id} className="story-card">
+                    <img
+                      src={story.image}
+                      alt="История"
+                      className="story-image"
+                      style={{ maxWidth: "150px", borderRadius: "8px" }}
+                      onError={(e) => {
+                        e.target.src =
+                          "https://via.placeholder.com/150?text=Image+Not+Found";
+                      }}
+                    />
+                    <p>
+                      Создано: {new Date(story.created_at).toLocaleString()}
+                    </p>
+                    <div className="story-buttons">
+                      <button
+                        className="edit-button"
+                        onClick={() => handleEditStory(story)}
+                      >
+                        Редактировать
+                      </button>
+                      <button
+                        className="delete-button"
+                        onClick={() => handleDeleteStory(story.id)}
+                      >
+                        Удалить
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="form-group">
-                <label>Адрес:</label>
-                <input
-                  type="text"
-                  name="address"
-                  value={branchFormData.address}
-                  onChange={handleBranchInputChange}
-                />
-              </div>
-              <div className="form-group">
-                <label>Телефон:</label>
-                <input
-                  type="text"
-                  name="phone"
-                  value={branchFormData.phone}
-                  onChange={handleBranchInputChange}
-                />
-              </div>
-              <div className="modal-buttons">
-                <button className="save-button" onClick={saveBranch}>
-                  Сохранить
-                </button>
-                <button className="cancel-button" onClick={closeBranchModal}>
-                  Отмена
-                </button>
+            ) : (
+              <p>Истории отсутствуют</p>
+            )}
+          </div>
+        </div>
+        <div className="branches-section">
+          <h2>Филиалы</h2>
+          <button className="add-button" onClick={() => openBranchModal()}>
+            Добавить филиал
+          </button>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Название</th>
+                <th>Адрес</th>
+                <th>Телефон</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {branches.map((branch) => (
+                <tr key={branch.id}>
+                  <td>{branch.name}</td>
+                  <td>{branch.address || "Нет"}</td>
+                  <td>{branch.phone || "Нет"}</td>
+                  <td>
+                    <button
+                      className="edit-button"
+                      onClick={() => openBranchModal(branch)}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      className="delete-button"
+                      onClick={() => deleteBranch(branch.id)}
+                    >
+                      Удалить
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {isBranchModalOpen && (
+            <div className="modal">
+              <div className="modal-content">
+                <h3>
+                  {currentBranch ? "Редактировать филиал" : "Добавить филиал"}
+                </h3>
+                <div className="form-group">
+                  <label>Название:</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={branchFormData.name}
+                    onChange={handleBranchInputChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Адрес:</label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={branchFormData.address}
+                    onChange={handleBranchInputChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Телефон:</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={branchFormData.phone}
+                    onChange={handleBranchInputChange}
+                  />
+                </div>
+                <div className="modal-buttons">
+                  <button className="save-button" onClick={saveBranch}>
+                    Сохранить
+                  </button>
+                  <button className="cancel-button" onClick={closeBranchModal}>
+                    Отмена
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
@@ -979,10 +1029,16 @@ const handleDeleteStory = async (storyId) => {
               <tr key={cat.id}>
                 <td>{cat.name}</td>
                 <td>
-                  <button className="edit-button" onClick={() => openCategoryModal(cat)}>
+                  <button
+                    className="edit-button"
+                    onClick={() => openCategoryModal(cat)}
+                  >
                     Редактировать
                   </button>
-                  <button className="delete-button" onClick={() => deleteCategory(cat.id)}>
+                  <button
+                    className="delete-button"
+                    onClick={() => deleteCategory(cat.id)}
+                  >
                     Удалить
                   </button>
                 </td>
@@ -994,7 +1050,11 @@ const handleDeleteStory = async (storyId) => {
         {isCategoryModalOpen && (
           <div className="modal">
             <div className="modal-content">
-              <h3>{currentCategory ? 'Редактировать категорию' : 'Добавить категорию'}</h3>
+              <h3>
+                {currentCategory
+                  ? "Редактировать категорию"
+                  : "Добавить категорию"}
+              </h3>
               <div className="form-group">
                 <label>Название:</label>
                 <input
@@ -1029,7 +1089,9 @@ const handleDeleteStory = async (storyId) => {
             type="text"
             placeholder="Код (например, SUMMER)"
             value={newPromoCode.code}
-            onChange={(e) => setNewPromoCode({ ...newPromoCode, code: e.target.value })}
+            onChange={(e) =>
+              setNewPromoCode({ ...newPromoCode, code: e.target.value })
+            }
           />
           <input
             type="number"
@@ -1037,19 +1099,28 @@ const handleDeleteStory = async (storyId) => {
             min="0"
             max="100"
             value={newPromoCode.discountPercent}
-            onChange={(e) => setNewPromoCode({ ...newPromoCode, discountPercent: e.target.value })}
+            onChange={(e) =>
+              setNewPromoCode({
+                ...newPromoCode,
+                discountPercent: e.target.value,
+              })
+            }
           />
           <input
             type="datetime-local"
             value={newPromoCode.expiresAt}
-            onChange={(e) => setNewPromoCode({ ...newPromoCode, expiresAt: e.target.value })}
+            onChange={(e) =>
+              setNewPromoCode({ ...newPromoCode, expiresAt: e.target.value })
+            }
           />
           <label>
             Активен:
             <input
               type="checkbox"
               checked={newPromoCode.isActive}
-              onChange={(e) => setNewPromoCode({ ...newPromoCode, isActive: e.target.checked })}
+              onChange={(e) =>
+                setNewPromoCode({ ...newPromoCode, isActive: e.target.checked })
+              }
             />
           </label>
           <button onClick={handleAddPromoCode}>Добавить промокод</button>
@@ -1070,14 +1141,24 @@ const handleDeleteStory = async (storyId) => {
               <tr key={promo.id}>
                 <td>{promo.code}</td>
                 <td>{promo.discount_percent}</td>
-                <td>{promo.expires_at ? new Date(promo.expires_at).toLocaleString() : 'Нет'}</td>
-                <td>{promo.is_active ? 'Да' : 'Нет'}</td>
+                <td>
+                  {promo.expires_at
+                    ? new Date(promo.expires_at).toLocaleString()
+                    : "Нет"}
+                </td>
+                <td>{promo.is_active ? "Да" : "Нет"}</td>
                 <td>{new Date(promo.created_at).toLocaleString()}</td>
                 <td>
-                  <button className="edit-button" onClick={() => handleEditPromoCode(promo)}>
+                  <button
+                    className="edit-button"
+                    onClick={() => handleEditPromoCode(promo)}
+                  >
                     Редактировать
                   </button>
-                  <button className="delete-button" onClick={() => handleDeletePromoCode(promo.id)}>
+                  <button
+                    className="delete-button"
+                    onClick={() => handleDeletePromoCode(promo.id)}
+                  >
                     Удалить
                   </button>
                 </td>
@@ -1090,7 +1171,9 @@ const handleDeleteStory = async (storyId) => {
   };
 
   const renderProductsByCategory = (categoryName) => {
-    const filteredProducts = products.filter((p) => p.category_name === categoryName);
+    const filteredProducts = products.filter(
+      (p) => p.category_name === categoryName
+    );
 
     return (
       <div className="category-section">
@@ -1105,7 +1188,8 @@ const handleDeleteStory = async (storyId) => {
                     alt={product.name}
                     className="product-image"
                     onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/150?text=Image+Not+Found';
+                      e.target.src =
+                        "https://via.placeholder.com/150?text=Image+Not+Found";
                     }}
                     loading="lazy"
                   />
@@ -1113,18 +1197,24 @@ const handleDeleteStory = async (storyId) => {
                   <div className="no-image">Изображение отсутствует</div>
                 )}
                 <h3>{product.name}</h3>
-                <p>{product.description || 'Нет описания'}</p>
+                <p>{product.description || "Нет описания"}</p>
                 {product.effective_discount > 0 && (
-                  <p className="discount">Скидка: {product.effective_discount}%</p>
+                  <p className="discount">
+                    Скидка: {product.effective_discount}%
+                  </p>
                 )}
-                {product.price_small || product.price_medium || product.price_large ? (
+                {product.price_small ||
+                product.price_medium ||
+                product.price_large ? (
                   <div className="price-list">
                     {product.price_small && (
                       <p>
-                        Маленькая:{' '}
+                        Маленькая:{" "}
                         {product.effective_discount > 0 ? (
                           <>
-                            <span className="old-price">{product.price_small} сом</span>{' '}
+                            <span className="old-price">
+                              {product.price_small} сом
+                            </span>{" "}
                             {product.final_price_small.toFixed(2)} сом
                           </>
                         ) : (
@@ -1134,10 +1224,12 @@ const handleDeleteStory = async (storyId) => {
                     )}
                     {product.price_medium && (
                       <p>
-                        Средняя:{' '}
+                        Средняя:{" "}
                         {product.effective_discount > 0 ? (
                           <>
-                            <span className="old-price">{product.price_medium} сом</span>{' '}
+                            <span className="old-price">
+                              {product.price_medium} сом
+                            </span>{" "}
                             {product.final_price_medium.toFixed(2)} сом
                           </>
                         ) : (
@@ -1147,10 +1239,12 @@ const handleDeleteStory = async (storyId) => {
                     )}
                     {product.price_large && (
                       <p>
-                        Большая:{' '}
+                        Большая:{" "}
                         {product.effective_discount > 0 ? (
                           <>
-                            <span className="old-price">{product.price_large} сом</span>{' '}
+                            <span className="old-price">
+                              {product.price_large} сом
+                            </span>{" "}
                             {product.final_price_large.toFixed(2)} сом
                           </>
                         ) : (
@@ -1161,10 +1255,12 @@ const handleDeleteStory = async (storyId) => {
                   </div>
                 ) : product.price_single ? (
                   <p>
-                    Цена:{' '}
+                    Цена:{" "}
                     {product.effective_discount > 0 ? (
                       <>
-                        <span className="old-price">{product.price_single} сом</span>{' '}
+                        <span className="old-price">
+                          {product.price_single} сом
+                        </span>{" "}
                         {product.final_price_single.toFixed(2)} сом
                       </>
                     ) : (
@@ -1175,10 +1271,16 @@ const handleDeleteStory = async (storyId) => {
                   <p>Цена не указана</p>
                 )}
                 <div className="product-buttons">
-                  <button className="edit-button" onClick={() => handleEdit(product)}>
+                  <button
+                    className="edit-button"
+                    onClick={() => handleEdit(product)}
+                  >
                     Редактировать
                   </button>
-                  <button className="delete-button" onClick={() => handleDelete(product.id)}>
+                  <button
+                    className="delete-button"
+                    onClick={() => handleDelete(product.id)}
+                  >
                     Удалить
                   </button>
                 </div>
@@ -1229,17 +1331,17 @@ const handleDeleteStory = async (storyId) => {
         Выйти
       </button>
       {error && <p className="error">{error}</p>}
-      {renderStoriesSection()}
+
       {renderBranchesSection()}
       {renderCategoriesSection()}
       {renderPromoCodesSection()}
 
       <form ref={formRef} onSubmit={handleSubmit} className="admin-form">
-        <h2>{editMode ? 'Редактировать продукт' : 'Добавить новый продукт'}</h2>
+        <h2>{editMode ? "Редактировать продукт" : "Добавить новый продукт"}</h2>
         <div>
           <label>Филиал:</label>
           <select
-            value={selectedBranch || ''}
+            value={selectedBranch || ""}
             onChange={(e) => setSelectedBranch(Number(e.target.value))}
             required
           >
@@ -1253,7 +1355,11 @@ const handleDeleteStory = async (storyId) => {
         </div>
         <div>
           <label>Категория:</label>
-          <select value={categoryId} onChange={handleCategoryChange} required={!editMode}>
+          <select
+            value={categoryId}
+            onChange={handleCategoryChange}
+            required={!editMode}
+          >
             <option value="">Выберите категорию</option>
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>
@@ -1294,7 +1400,11 @@ const handleDeleteStory = async (storyId) => {
                 src={imagePreview}
                 alt="Превью"
                 className="image-preview"
-                style={{ maxWidth: '200px', borderRadius: '8px', margin: '10px 0' }}
+                style={{
+                  maxWidth: "200px",
+                  borderRadius: "8px",
+                  margin: "10px 0",
+                }}
               />
             </div>
           )}
@@ -1304,11 +1414,11 @@ const handleDeleteStory = async (storyId) => {
         <button type="submit" disabled={isSubmitting} className="submit-button">
           {isSubmitting
             ? editMode
-              ? 'Обновляем...'
-              : 'Добавляем...'
+              ? "Обновляем..."
+              : "Добавляем..."
             : editMode
-            ? 'Обновить'
-            : 'Добавить'}
+            ? "Обновить"
+            : "Добавить"}
         </button>
       </form>
 
