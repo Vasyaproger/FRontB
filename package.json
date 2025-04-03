@@ -25,7 +25,7 @@
  "scripts": {
   "prebuild": "node -e \"if (process.version.split('.')[0].slice(1) < 16) { console.error('Node.js >=16 required'); process.exit(1); }\"",
   "start": "react-scripts start",
-  "build": "react-scripts build",
+  "build": "npm run prebuild && react-scripts build",
   "test": "react-scripts test",
   "eject": "react-scripts eject"
 },
