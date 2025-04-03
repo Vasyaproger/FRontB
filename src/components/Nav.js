@@ -64,7 +64,7 @@ const Nav = () => {
 
       try {
         const res = await fetch(
-          "https://nukesul-backend-1bde.twc1.net/api/user",
+          "https://nukesul-brepb-651f.twc1.net/api/user",
           {
             headers: { Authorization: `Bearer ${token}` },
           }

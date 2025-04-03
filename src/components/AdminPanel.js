@@ -44,7 +44,7 @@ function AdminPanel() {
 
   const formRef = useRef(null);
   const navigate = useNavigate();
-  const baseURL = "https://nukesul-backend-1bde.twc1.net";
+  const baseURL = "https://nukesul-brepb-651f.twc1.net";
 
   // Проверка токена при загрузке
   useEffect(() => {

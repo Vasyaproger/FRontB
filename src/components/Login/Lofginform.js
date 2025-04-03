@@ -9,7 +9,7 @@ function Lofginform() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const baseURL = "https://nukesul-backend-1bde.twc1.net";
+  const baseURL = "https://nukesul-brepb-651f.twc1.net";
 
   // Проверка токена при монтировании
   useEffect(() => {

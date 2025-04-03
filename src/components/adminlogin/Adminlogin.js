@@ -34,7 +34,7 @@ const Adminlogin = () => {
     setError('');
 
     try {
-      const response = await fetch('https://nukesul-backend-1bde.twc1.net/admin/login', {
+      const response = await fetch('https://nukesul-brepb-651f.twc1.net/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),

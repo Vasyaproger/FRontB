@@ -47,7 +47,7 @@ function Products() {
   const menuRef = useRef(null);
   const sectionRefs = useRef({});
   const navigate = useNavigate();
-  const baseURL = "https://nukesul-backend-1bde.twc1.net";
+  const baseURL = "https://nukesul-brepb-651f.twc1.net";
 
   const categoryEmojis = {
     Пиццы: "🍕",
@@ -554,7 +554,7 @@ function Products() {
                 >
                   <LazyImage
                     className="best-seller-product-image"
-                    src={`https://boodaikg.com${product.image_url}`}
+                    src={`https://nukesul-brepb-651f.twc1.net${product.image_url}`}
                     alt={product.name}
                     placeholder={`data:image/svg+xml,${encodeURIComponent(jpgPlaceholder)}`}
                   />
@@ -629,7 +629,7 @@ function Products() {
                       >
                         <LazyImage
                           className="menu-product-image"
-                          src={`https://boodaikg.com${product.image_url}`}
+                          src={`https://nukesul-brepb-651f.twc1.net${product.image_url}`}
                           alt={product.name}
                           placeholder={`data:image/svg+xml,${encodeURIComponent(jpgPlaceholder)}`}
                         />
@@ -671,7 +671,7 @@ function Products() {
             </button>
             <div className="modal-body">
               <img
-                src={`https://boodaikg.com${selectedProduct.product.image_url}`}
+                src={`https://nukesul-brepb-651f.twc1.net${selectedProduct.product.image_url}`}
                 alt={selectedProduct.product.name}
                 className="modal-image"
               />
@@ -747,7 +747,7 @@ function Products() {
               const discountedPrice = calculateDiscountedPrice(price).toFixed(2);
               return (
                 <div key={item.id} className="order-item">
-                  <img src={`https://boodaikg.com${item.image}`} alt={item.name} />
+                  <img src={`https://nukesul-brepb-651f.twc1.net${item.image}`} alt={item.name} />
                   <div className="order-item-info">
                     <h3>{item.name}</h3>
                     {discount > 0 ? (

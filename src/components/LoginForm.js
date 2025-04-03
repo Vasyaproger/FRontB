@@ -22,7 +22,7 @@ function LoginForm() {
   const handleSubmitLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('https://nukesul-backend-1bde.twc1.net/api/login', {
+      const response = await fetch('https://nukesul-brepb-651f.twc1.net/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -52,7 +52,7 @@ function LoginForm() {
   const handleSubmitRegister = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('https://nukesul-backend-1bde.twc1.net/api/register', {
+      const response = await fetch('https://nukesul-brepb-651f.twc1.net/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
