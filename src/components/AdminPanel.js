@@ -14,6 +14,7 @@ function AdminPanel() {
   const [priceMedium, setPriceMedium] = useState('');
   const [priceLarge, setPriceLarge] = useState('');
   const [priceSingle, setPriceSingle] = useState('');
+  const [priceFieldsCount, setPriceFieldsCount] = useState(3); // По умолчанию 3 для пицц
   const [products, setProducts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -24,6 +25,8 @@ function AdminPanel() {
   const [newPromoCode, setNewPromoCode] = useState({
     code: '',
     discountPercent: '',
+    expiresAt: '',
+    isActive: true,
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [branches, setBranches] = useState([]);
@@ -91,9 +94,7 @@ function AdminPanel() {
         fetch(`${baseURL}/promo-codes`, { headers }),
       ]);
 
-      if (!branchesRes.ok || !categoriesRes.ok) {
-        throw new Error('Ошибка загрузки данных');
-      }
+      if (!branchesRes.ok || !categoriesRes.ok) throw new Error('Ошибка загрузки данных');
 
       const branchesData = await branchesRes.json();
       const categoriesData = await categoriesRes.json();
@@ -106,7 +107,7 @@ function AdminPanel() {
       setUsers(Array.isArray(usersData) ? usersData.map(u => ({
         user_id: u.id,
         first_name: u.name,
-        email: u.email
+        email: u.email,
       })) : []);
       setPromoCodeList(Array.isArray(promoCodesData) ? promoCodesData : []);
     } catch (error) {
@@ -189,6 +190,12 @@ function AdminPanel() {
     setCategoryId(e.target.value);
     setSubCategoryId('');
     resetPriceFields();
+    const selectedCategory = categories.find(c => c.id === parseInt(e.target.value));
+    if (selectedCategory?.name === 'Пиццы') {
+      setPriceFieldsCount(3); // По умолчанию 3 для пицц
+    } else {
+      setPriceFieldsCount(1); // Для других категорий только одна цена
+    }
   };
 
   const resetFormFields = () => {
@@ -199,6 +206,7 @@ function AdminPanel() {
     setCategoryId('');
     setSubCategoryId('');
     resetPriceFields();
+    setPriceFieldsCount(3); // Сбрасываем на 3 по умолчанию
   };
 
   const resetPriceFields = () => {
@@ -381,7 +389,7 @@ function AdminPanel() {
       if (!response.ok) throw new Error('Ошибка добавления промокода');
       const data = await response.json();
       setPromoCodeList([...promoCodeList, data]);
-      setNewPromoCode({ code: '', discountPercent: '' });
+      setNewPromoCode({ code: '', discountPercent: '', expiresAt: '', isActive: true });
       alert('Промокод добавлен!');
     } catch (error) {
       console.error('Ошибка:', error);
@@ -393,6 +401,8 @@ function AdminPanel() {
     setNewPromoCode({
       code: promo.code,
       discountPercent: promo.discount_percent,
+      expiresAt: promo.expires_at ? promo.expires_at.slice(0, 16) : '',
+      isActive: promo.is_active,
     });
     handleDeletePromoCode(promo.id); // Удаляем старый, чтобы заменить новым
   };
@@ -465,11 +475,34 @@ function AdminPanel() {
       setIsSubmitting(false);
       return;
     }
-    if (!priceSingle && !priceSmall && !editMode) {
-      alert('Укажите цену!');
-      setIsSubmitting(false);
-      return;
+
+    const selectedCategory = categories.find(c => c.id === parseInt(categoryId));
+    const isPizza = selectedCategory?.name === 'Пиццы';
+
+    if (isPizza) {
+      if (priceFieldsCount >= 1 && !priceSmall && !editMode) {
+        alert('Укажите цену для маленького размера!');
+        setIsSubmitting(false);
+        return;
+      }
+      if (priceFieldsCount >= 2 && !priceMedium && !editMode) {
+        alert('Укажите цену для среднего размера!');
+        setIsSubmitting(false);
+        return;
+      }
+      if (priceFieldsCount >= 3 && !priceLarge && !editMode) {
+        alert('Укажите цену для большого размера!');
+        setIsSubmitting(false);
+        return;
+      }
+    } else {
+      if (!priceSingle && !editMode) {
+        alert('Укажите цену!');
+        setIsSubmitting(false);
+        return;
+      }
     }
+
     if (!image && !editMode) {
       alert('Загрузите изображение!');
       setIsSubmitting(false);
@@ -571,6 +604,19 @@ function AdminPanel() {
     setPriceSingle(product.price_single || '');
     setImage(null);
     setImagePreview(product.image);
+
+    const selectedCategory = categories.find(c => c.id === parseInt(product.category_id));
+    const isPizza = selectedCategory?.name === 'Пиццы';
+    if (isPizza) {
+      let count = 0;
+      if (product.price_small) count++;
+      if (product.price_medium) count++;
+      if (product.price_large) count++;
+      setPriceFieldsCount(count || 3); // Если цен нет, по умолчанию 3
+    } else {
+      setPriceFieldsCount(1);
+    }
+
     if (formRef.current) {
       formRef.current.scrollIntoView({ behavior: 'smooth' });
     }
@@ -641,32 +687,54 @@ function AdminPanel() {
       return (
         <>
           <div>
-            <label>Маленькая (сом):</label>
-            <input
-              type="number"
-              value={priceSmall}
-              onChange={(e) => setPriceSmall(e.target.value)}
-              min="0"
-            />
+            <label>Количество размеров:</label>
+            <select
+              value={priceFieldsCount}
+              onChange={(e) => {
+                const count = parseInt(e.target.value);
+                setPriceFieldsCount(count);
+                if (count < 3) setPriceLarge('');
+                if (count < 2) setPriceMedium('');
+              }}
+            >
+              <option value={1}>1 размер</option>
+              <option value={2}>2 размера</option>
+              <option value={3}>3 размера</option>
+            </select>
           </div>
-          <div>
-            <label>Средняя (сом):</label>
-            <input
-              type="number"
-              value={priceMedium}
-              onChange={(e) => setPriceMedium(e.target.value)}
-              min="0"
-            />
-          </div>
-          <div>
-            <label>Большая (сом):</label>
-            <input
-              type="number"
-              value={priceLarge}
-              onChange={(e) => setPriceLarge(e.target.value)}
-              min="0"
-            />
-          </div>
+          {priceFieldsCount >= 1 && (
+            <div>
+              <label>Маленькая (сом):</label>
+              <input
+                type="number"
+                value={priceSmall}
+                onChange={(e) => setPriceSmall(e.target.value)}
+                min="0"
+              />
+            </div>
+          )}
+          {priceFieldsCount >= 2 && (
+            <div>
+              <label>Средняя (сом):</label>
+              <input
+                type="number"
+                value={priceMedium}
+                onChange={(e) => setPriceMedium(e.target.value)}
+                min="0"
+              />
+            </div>
+          )}
+          {priceFieldsCount >= 3 && (
+            <div>
+              <label>Большая (сом):</label>
+              <input
+                type="number"
+                value={priceLarge}
+                onChange={(e) => setPriceLarge(e.target.value)}
+                min="0"
+              />
+            </div>
+          )}
         </>
       );
     } else {
@@ -845,6 +913,19 @@ function AdminPanel() {
             value={newPromoCode.discountPercent}
             onChange={(e) => setNewPromoCode({ ...newPromoCode, discountPercent: e.target.value })}
           />
+          <input
+            type="datetime-local"
+            value={newPromoCode.expiresAt}
+            onChange={(e) => setNewPromoCode({ ...newPromoCode, expiresAt: e.target.value })}
+          />
+          <label>
+            Активен:
+            <input
+              type="checkbox"
+              checked={newPromoCode.isActive}
+              onChange={(e) => setNewPromoCode({ ...newPromoCode, isActive: e.target.checked })}
+            />
+          </label>
           <button onClick={handleAddPromoCode}>Добавить промокод</button>
         </div>
         <table className="admin-table">
@@ -852,6 +933,8 @@ function AdminPanel() {
             <tr>
               <th>Код</th>
               <th>Скидка (%)</th>
+              <th>Истекает</th>
+              <th>Активен</th>
               <th>Создан</th>
               <th>Действия</th>
             </tr>
@@ -861,6 +944,8 @@ function AdminPanel() {
               <tr key={promo.id}>
                 <td>{promo.code}</td>
                 <td>{promo.discount_percent}</td>
+                <td>{promo.expires_at ? new Date(promo.expires_at).toLocaleString() : 'Нет'}</td>
+                <td>{promo.is_active ? 'Да' : 'Нет'}</td>
                 <td>{new Date(promo.created_at).toLocaleString()}</td>
                 <td>
                   <button className="edit-button" onClick={() => handleEditPromoCode(promo)}>
