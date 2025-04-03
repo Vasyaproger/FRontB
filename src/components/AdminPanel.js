@@ -20,6 +20,13 @@ function AdminPanel() {
   const [editingProductId, setEditingProductId] = useState(null);
   const [promoCodes, setPromoCodes] = useState({});
   const [userDiscounts, setUserDiscounts] = useState({});
+  const [promoCodeList, setPromoCodeList] = useState([]);
+  const [newPromoCode, setNewPromoCode] = useState({
+    code: '',
+    discountPercent: '',
+    expiresAt: '',
+    isActive: true,
+  });
   const [imagePreview, setImagePreview] = useState(null);
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState(null);
@@ -79,10 +86,11 @@ function AdminPanel() {
   const fetchInitialData = async (authToken) => {
     try {
       const headers = { 'Authorization': `Bearer ${authToken}` };
-      const [branchesRes, categoriesRes, usersRes] = await Promise.all([
+      const [branchesRes, categoriesRes, usersRes, promoCodesRes] = await Promise.all([
         fetch(`${baseURL}/branches`, { headers }),
         fetch(`${baseURL}/categories`, { headers }),
         fetch(`${baseURL}/users`, { headers }), // Предполагаем, что маршрут /users существует
+        fetch(`${baseURL}/promo-codes`, { headers }),
       ]);
 
       if (!branchesRes.ok || !categoriesRes.ok) {
@@ -92,6 +100,7 @@ function AdminPanel() {
       const branchesData = await branchesRes.json();
       const categoriesData = await categoriesRes.json();
       const usersData = usersRes.ok ? await usersRes.json() : [];
+      const promoCodesData = promoCodesRes.ok ? await promoCodesRes.json() : [];
 
       setBranches(Array.isArray(branchesData) ? branchesData : []);
       setSelectedBranch(branchesData[0]?.id || null);
@@ -101,6 +110,7 @@ function AdminPanel() {
         first_name: u.name,
         email: u.email
       })) : []);
+      setPromoCodeList(Array.isArray(promoCodesData) ? promoCodesData : []);
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
       setError('Не удалось загрузить данные');
@@ -135,7 +145,7 @@ function AdminPanel() {
       const response = await fetch(`${baseURL}/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email: username, password }), // Предполагаем, что username это email
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -351,6 +361,60 @@ function AdminPanel() {
     } catch (error) {
       console.error('Ошибка:', error);
       alert('Ошибка при удалении категории');
+    }
+  };
+
+  // Управление промокодами
+  const handleAddPromoCode = async () => {
+    if (!newPromoCode.code || !newPromoCode.discountPercent) {
+      alert('Введите код и процент скидки!');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${baseURL}/promo-codes`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newPromoCode),
+      });
+      if (!response.ok) throw new Error('Ошибка добавления промокода');
+      const data = await response.json();
+      setPromoCodeList([...promoCodeList, data]);
+      setNewPromoCode({ code: '', discountPercent: '', expiresAt: '', isActive: true });
+      alert('Промокод добавлен!');
+    } catch (error) {
+      console.error('Ошибка:', error);
+      alert('Ошибка при добавлении промокода');
+    }
+  };
+
+  const handleEditPromoCode = (promo) => {
+    setNewPromoCode({
+      code: promo.code,
+      discountPercent: promo.discount_percent,
+      expiresAt: promo.expires_at ? promo.expires_at.slice(0, 16) : '',
+      isActive: promo.is_active,
+    });
+    handleDeletePromoCode(promo.id); // Удаляем старый, чтобы заменить новым
+  };
+
+  const handleDeletePromoCode = async (id) => {
+    if (!window.confirm('Вы уверены, что хотите удалить этот промокод?')) return;
+
+    try {
+      const response = await fetch(`${baseURL}/promo-codes/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Ошибка удаления промокода');
+      setPromoCodeList(promoCodeList.filter((p) => p.id !== id));
+      alert('Промокод удалён!');
+    } catch (error) {
+      console.error('Ошибка:', error);
+      alert('Ошибка при удалении промокода');
     }
   };
 
@@ -766,6 +830,73 @@ function AdminPanel() {
     );
   };
 
+  const renderPromoCodesSection = () => {
+    return (
+      <div className="promo-codes-section">
+        <h2>Промокоды</h2>
+        <div className="promo-code-form">
+          <input
+            type="text"
+            placeholder="Код (например, SUMMER)"
+            value={newPromoCode.code}
+            onChange={(e) => setNewPromoCode({ ...newPromoCode, code: e.target.value })}
+          />
+          <input
+            type="number"
+            placeholder="Скидка (%)"
+            min="0"
+            max="100"
+            value={newPromoCode.discountPercent}
+            onChange={(e) => setNewPromoCode({ ...newPromoCode, discountPercent: e.target.value })}
+          />
+          <input
+            type="datetime-local"
+            value={newPromoCode.expiresAt}
+            onChange={(e) => setNewPromoCode({ ...newPromoCode, expiresAt: e.target.value })}
+          />
+          <label>
+            Активен:
+            <input
+              type="checkbox"
+              checked={newPromoCode.isActive}
+              onChange={(e) => setNewPromoCode({ ...newPromoCode, isActive: e.target.checked })}
+            />
+          </label>
+          <button onClick={handleAddPromoCode}>Добавить промокод</button>
+        </div>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Код</th>
+              <th>Скидка (%)</th>
+              <th>Истекает</th>
+              <th>Активен</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {promoCodeList.map((promo) => (
+              <tr key={promo.id}>
+                <td>{promo.code}</td>
+                <td>{promo.discount_percent}</td>
+                <td>{promo.expires_at ? new Date(promo.expires_at).toLocaleString() : 'Никогда'}</td>
+                <td>{promo.is_active ? 'Да' : 'Нет'}</td>
+                <td>
+                  <button className="edit-button" onClick={() => handleEditPromoCode(promo)}>
+                    Редактировать
+                  </button>
+                  <button className="delete-button" onClick={() => handleDeletePromoCode(promo.id)}>
+                    Удалить
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   const renderProductsByCategory = (categoryName) => {
     const filteredProducts = products.filter((p) => p.category_name === categoryName);
 
@@ -791,14 +922,63 @@ function AdminPanel() {
                 )}
                 <h3>{product.name}</h3>
                 <p>{product.description || 'Нет описания'}</p>
+                {product.effective_discount > 0 && (
+                  <p className="discount">Скидка: {product.effective_discount}%</p>
+                )}
                 {product.price_small || product.price_medium || product.price_large ? (
                   <div className="price-list">
-                    {product.price_small && <p>Маленькая: {product.price_small} сом</p>}
-                    {product.price_medium && <p>Средняя: {product.price_medium} сом</p>}
-                    {product.price_large && <p>Большая: {product.price_large} сом</p>}
+                    {product.price_small && (
+                      <p>
+                        Маленькая:{' '}
+                        {product.effective_discount > 0 ? (
+                          <>
+                            <span className="old-price">{product.price_small} сом</span>{' '}
+                            {product.final_price_small.toFixed(2)} сом
+                          </>
+                        ) : (
+                          `${product.price_small} сом`
+                        )}
+                      </p>
+                    )}
+                    {product.price_medium && (
+                      <p>
+                        Средняя:{' '}
+                        {product.effective_discount > 0 ? (
+                          <>
+                            <span className="old-price">{product.price_medium} сом</span>{' '}
+                            {product.final_price_medium.toFixed(2)} сом
+                          </>
+                        ) : (
+                          `${product.price_medium} сом`
+                        )}
+                      </p>
+                    )}
+                    {product.price_large && (
+                      <p>
+                        Большая:{' '}
+                        {product.effective_discount > 0 ? (
+                          <>
+                            <span className="old-price">{product.price_large} сом</span>{' '}
+                            {product.final_price_large.toFixed(2)} сом
+                          </>
+                        ) : (
+                          `${product.price_large} сом`
+                        )}
+                      </p>
+                    )}
                   </div>
                 ) : product.price_single ? (
-                  <p>Цена: {product.price_single} сом</p>
+                  <p>
+                    Цена:{' '}
+                    {product.effective_discount > 0 ? (
+                      <>
+                        <span className="old-price">{product.price_single} сом</span>{' '}
+                        {product.final_price_single.toFixed(2)} сом
+                      </>
+                    ) : (
+                      `${product.price_single} сом`
+                    )}
+                  </p>
                 ) : (
                   <p>Цена не указана</p>
                 )}
@@ -826,9 +1006,9 @@ function AdminPanel() {
         <h1>Вход в админ-панель</h1>
         <form onSubmit={handleLogin}>
           <div className="form-group">
-            <label>Имя пользователя:</label>
+            <label>Email:</label>
             <input
-              type="text"
+              type="email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -860,6 +1040,7 @@ function AdminPanel() {
 
       {renderBranchesSection()}
       {renderCategoriesSection()}
+      {renderPromoCodesSection()}
 
       <form ref={formRef} onSubmit={handleSubmit} className="admin-form">
         <h2>{editMode ? 'Редактировать продукт' : 'Добавить новый продукт'}</h2>
