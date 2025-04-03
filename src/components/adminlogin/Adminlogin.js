@@ -3,31 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import './adminney.css';
 
 const Adminlogin = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  // Проверка токена при загрузке
   useEffect(() => {
     if (localStorage.getItem('token')) {
       navigate('/AdminPanel');
     }
   }, [navigate]);
 
-  // Обработка изменений в полях ввода
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'username') {
-      setUsername(value);
+    if (name === 'email') {
+      setEmail(value);
     } else if (name === 'password') {
       setPassword(value);
     }
   };
 
-  // Обработка отправки формы
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -44,7 +41,7 @@ const Adminlogin = () => {
         const errorData = await response.json();
         setError(errorData.error || 'Ошибка входа');
         setLoading(false);
-        setUsername('');
+        setEmail('');
         setPassword('');
         return;
       }
@@ -66,11 +63,11 @@ const Adminlogin = () => {
         {error && <div className="error-message">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className='form-group'>
-            <label className='form-label5' htmlFor='username'>Имя пользователя</label>
+            <label className='form-label5' htmlFor='email'>Email</label>
             <input
-              type='text'
-              id='username'
-              name='username'
+              type='email'
+              id='email'
+              name='email'
               className='form-input1'
               value={email}
               onChange={handleInputChange}
