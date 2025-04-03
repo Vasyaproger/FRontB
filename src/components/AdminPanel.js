@@ -14,7 +14,7 @@ function AdminPanel() {
   const [priceMedium, setPriceMedium] = useState('');
   const [priceLarge, setPriceLarge] = useState('');
   const [priceSingle, setPriceSingle] = useState('');
-  const [priceFieldsCount, setPriceFieldsCount] = useState(3); // По умолчанию 3 для пицц
+  const [priceFieldsCount, setPriceFieldsCount] = useState(1); // По умолчанию 1 для всех категорий
   const [products, setProducts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -190,12 +190,7 @@ function AdminPanel() {
     setCategoryId(e.target.value);
     setSubCategoryId('');
     resetPriceFields();
-    const selectedCategory = categories.find(c => c.id === parseInt(e.target.value));
-    if (selectedCategory?.name === 'Пиццы') {
-      setPriceFieldsCount(3); // По умолчанию 3 для пицц
-    } else {
-      setPriceFieldsCount(1); // Для других категорий только одна цена
-    }
+    setPriceFieldsCount(1); // Сбрасываем на 1 при смене категории
   };
 
   const resetFormFields = () => {
@@ -206,7 +201,7 @@ function AdminPanel() {
     setCategoryId('');
     setSubCategoryId('');
     resetPriceFields();
-    setPriceFieldsCount(3); // Сбрасываем на 3 по умолчанию
+    setPriceFieldsCount(1); // Сбрасываем на 1 по умолчанию
   };
 
   const resetPriceFields = () => {
@@ -476,31 +471,20 @@ function AdminPanel() {
       return;
     }
 
-    const selectedCategory = categories.find(c => c.id === parseInt(categoryId));
-    const isPizza = selectedCategory?.name === 'Пиццы';
-
-    if (isPizza) {
-      if (priceFieldsCount >= 1 && !priceSmall && !editMode) {
-        alert('Укажите цену для маленького размера!');
-        setIsSubmitting(false);
-        return;
-      }
-      if (priceFieldsCount >= 2 && !priceMedium && !editMode) {
-        alert('Укажите цену для среднего размера!');
-        setIsSubmitting(false);
-        return;
-      }
-      if (priceFieldsCount >= 3 && !priceLarge && !editMode) {
-        alert('Укажите цену для большого размера!');
-        setIsSubmitting(false);
-        return;
-      }
-    } else {
-      if (!priceSingle && !editMode) {
-        alert('Укажите цену!');
-        setIsSubmitting(false);
-        return;
-      }
+    if (priceFieldsCount >= 1 && !priceSmall && !editMode) {
+      alert('Укажите цену для маленького размера!');
+      setIsSubmitting(false);
+      return;
+    }
+    if (priceFieldsCount >= 2 && !priceMedium && !editMode) {
+      alert('Укажите цену для среднего размера!');
+      setIsSubmitting(false);
+      return;
+    }
+    if (priceFieldsCount >= 3 && !priceLarge && !editMode) {
+      alert('Укажите цену для большого размера!');
+      setIsSubmitting(false);
+      return;
     }
 
     if (!image && !editMode) {
@@ -605,17 +589,11 @@ function AdminPanel() {
     setImage(null);
     setImagePreview(product.image);
 
-    const selectedCategory = categories.find(c => c.id === parseInt(product.category_id));
-    const isPizza = selectedCategory?.name === 'Пиццы';
-    if (isPizza) {
-      let count = 0;
-      if (product.price_small) count++;
-      if (product.price_medium) count++;
-      if (product.price_large) count++;
-      setPriceFieldsCount(count || 3); // Если цен нет, по умолчанию 3
-    } else {
-      setPriceFieldsCount(1);
-    }
+    let count = 0;
+    if (product.price_small) count++;
+    if (product.price_medium) count++;
+    if (product.price_large) count++;
+    setPriceFieldsCount(count || 1); // Устанавливаем количество цен, минимум 1
 
     if (formRef.current) {
       formRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -678,78 +656,73 @@ function AdminPanel() {
   };
 
   const renderPriceFields = () => {
-    const selectedCategory = categories.find(c => c.id === parseInt(categoryId));
-    const isPizza = selectedCategory?.name === 'Пиццы';
-
     if (!categoryId) return null;
 
-    if (isPizza) {
-      return (
-        <>
-          <div>
-            <label>Количество размеров:</label>
-            <select
-              value={priceFieldsCount}
-              onChange={(e) => {
-                const count = parseInt(e.target.value);
-                setPriceFieldsCount(count);
-                if (count < 3) setPriceLarge('');
-                if (count < 2) setPriceMedium('');
-              }}
-            >
-              <option value={1}>1 размер</option>
-              <option value={2}>2 размера</option>
-              <option value={3}>3 размера</option>
-            </select>
-          </div>
-          {priceFieldsCount >= 1 && (
-            <div>
-              <label>Маленькая (сом):</label>
-              <input
-                type="number"
-                value={priceSmall}
-                onChange={(e) => setPriceSmall(e.target.value)}
-                min="0"
-              />
-            </div>
-          )}
-          {priceFieldsCount >= 2 && (
-            <div>
-              <label>Средняя (сом):</label>
-              <input
-                type="number"
-                value={priceMedium}
-                onChange={(e) => setPriceMedium(e.target.value)}
-                min="0"
-              />
-            </div>
-          )}
-          {priceFieldsCount >= 3 && (
-            <div>
-              <label>Большая (сом):</label>
-              <input
-                type="number"
-                value={priceLarge}
-                onChange={(e) => setPriceLarge(e.target.value)}
-                min="0"
-              />
-            </div>
-          )}
-        </>
-      );
-    } else {
-      return (
+    return (
+      <>
         <div>
-          <label>Цена (сом):</label>
-          <input
-            type="number"
-            value={priceSingle}
-            onChange={(e) => setPriceSingle(e.target.value)}
-            min="0"
-          />
+          <label>Количество размеров:</label>
+          <select
+            value={priceFieldsCount}
+            onChange={(e) => {
+              const count = parseInt(e.target.value);
+              setPriceFieldsCount(count);
+              if (count < 3) setPriceLarge('');
+              if (count < 2) setPriceMedium('');
+              if (count === 1) setPriceSingle(priceSmall || ''); // Переносим маленькую цену в priceSingle, если выбрана 1 цена
+            }}
+          >
+            <option value={1}>1 размер</option>
+            <option value={2}>2 размера</option>
+            <option value={3}>3 размера</option>
+          </select>
         </div>
-      );
-    }
+        {priceFieldsCount === 1 && (
+          <div>
+            <label>Цена (сом):</label>
+            <input
+              type="number"
+              value={priceSingle}
+              onChange={(e) => setPriceSingle(e.target.value)}
+              min="0"
+            />
+          </div>
+        )}
+        {priceFieldsCount >= 1 && priceFieldsCount > 1 && (
+          <div>
+            <label>Маленькая (сом):</label>
+            <input
+              type="number"
+              value={priceSmall}
+              onChange={(e) => setPriceSmall(e.target.value)}
+              min="0"
+            />
+          </div>
+        )}
+        {priceFieldsCount >= 2 && (
+          <div>
+            <label>Средняя (сом):</label>
+            <input
+              type="number"
+              value={priceMedium}
+              onChange={(e) => setPriceMedium(e.target.value)}
+              min="0"
+            />
+          </div>
+        )}
+        {priceFieldsCount >= 3 && (
+          <div>
+            <label>Большая (сом):</label>
+            <input
+              type="number"
+              value={priceLarge}
+              onChange={(e) => setPriceLarge(e.target.value)}
+              min="0"
+            />
+          </div>
+        )}
+      </>
+    );
   };
 
   const renderBranchesSection = () => {
