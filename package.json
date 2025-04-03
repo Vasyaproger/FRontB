@@ -22,12 +22,13 @@
     "react-swipeable": "^7.0.2",
     "web-vitals": "^2.1.4"
   },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
+ "scripts": {
+  "prebuild": "node -e \"if (process.version.split('.')[0].slice(1) < 16) { console.error('Node.js >=16 required'); process.exit(1); }\"",
+  "start": "react-scripts start",
+  "build": "react-scripts build",
+  "test": "react-scripts test",
+  "eject": "react-scripts eject"
+},
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -50,6 +51,6 @@
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11"
   },
 "engines": {
-  "node": ">=16.0.0"
+  "node": "^16 || ^20"
 }
 }
