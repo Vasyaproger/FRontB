@@ -22,6 +22,11 @@ function AdminPanel() {
   const [promoCodes, setPromoCodes] = useState({});
   const [userDiscounts, setUserDiscounts] = useState({});
   const [promoCodeList, setPromoCodeList] = useState([]);
+  const [stories, setStories] = useState([]);
+const [newStoryImage, setNewStoryImage] = useState(null);
+const [newStoryImagePreview, setNewStoryImagePreview] = useState(null);
+const [isStoryEditMode, setIsStoryEditMode] = useState(false);
+const [editingStoryId, setEditingStoryId] = useState(null);
   const [newPromoCode, setNewPromoCode] = useState({
     code: '',
     discountPercent: '',
@@ -92,6 +97,7 @@ function AdminPanel() {
         fetch(`${baseURL}/categories`, { headers }),
         fetch(`${baseURL}/users`, { headers }),
         fetch(`${baseURL}/promo-codes`, { headers }),
+        fetch(`${baseURL}/stories`, { headers }),
       ]);
 
       if (!branchesRes.ok || !categoriesRes.ok) throw new Error('Ошибка загрузки данных');
@@ -100,6 +106,7 @@ function AdminPanel() {
       const categoriesData = await categoriesRes.json();
       const usersData = usersRes.ok ? await usersRes.json() : [];
       const promoCodesData = promoCodesRes.ok ? await promoCodesRes.json() : [];
+      const storiesData = storiesRes.ok ? await storiesRes.json() : [];
 
       setBranches(Array.isArray(branchesData) ? branchesData : []);
       setSelectedBranch(branchesData[0]?.id || null);
@@ -110,12 +117,102 @@ function AdminPanel() {
         email: u.email,
       })) : []);
       setPromoCodeList(Array.isArray(promoCodesData) ? promoCodesData : []);
+      setStories(Array.isArray(storiesData) ? storiesData : []); // Сохраняем истории
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
       setError('Не удалось загрузить данные');
     }
   };
+  const handleStoryImageChange = (e) => {
+    const file = e.target.files[0];
+    setNewStoryImage(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setNewStoryImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    } else {
+      setNewStoryImagePreview(null);
+    }
+  };
+  // Сброс формы
+const resetStoryForm = () => {
+  setNewStoryImage(null);
+  setNewStoryImagePreview(null);
+  setIsStoryEditMode(false);
+  setEditingStoryId(null);
+};
 
+// Добавление или обновление истории
+const handleStorySubmit = async (e) => {
+  e.preventDefault();
+
+  if (!newStoryImage && !isStoryEditMode) {
+    alert('Пожалуйста, выберите изображение!');
+    return;
+  }
+
+  const formData = new FormData();
+  if (newStoryImage) {
+    formData.append('image', newStoryImage);
+  }
+
+  try {
+    const url = isStoryEditMode ? `${baseURL}/stories/${editingStoryId}` : `${baseURL}/stories`;
+    const method = isStoryEditMode ? 'PUT' : 'POST';
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Ошибка при сохранении истории');
+    }
+
+    const updatedStory = await response.json();
+    if (isStoryEditMode) {
+      setStories(stories.map((story) => (story.id === editingStoryId ? updatedStory : story)));
+      alert('История обновлена!');
+    } else {
+      setStories([...stories, updatedStory]);
+      alert('История добавлена!');
+    }
+    resetStoryForm();
+  } catch (error) {
+    console.error('Ошибка при сохранении истории:', error);
+    alert(error.message || 'Произошла ошибка при сохранении истории');
+  }
+};
+
+// Редактирование истории
+const handleEditStory = (story) => {
+  setIsStoryEditMode(true);
+  setEditingStoryId(story.id);
+  setNewStoryImage(null);
+  setNewStoryImagePreview(story.image);
+};
+
+// Удаление истории
+const handleDeleteStory = async (storyId) => {
+  if (!window.confirm('Вы уверены, что хотите удалить эту историю?')) return;
+
+  try {
+    const response = await fetch(`${baseURL}/stories/${storyId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Ошибка удаления истории');
+    setStories(stories.filter((s) => s.id !== storyId));
+    alert('История удалена!');
+  } catch (error) {
+    console.error('Ошибка при удалении истории:', error);
+    alert('Произошла ошибка при удалении истории');
+  }
+};
   // Загрузка продуктов для выбранного филиала
   useEffect(() => {
     if (!selectedBranch || !isAuthenticated || !token) return;
@@ -604,8 +701,80 @@ function AdminPanel() {
     const filteredUsers = users.filter((user) =>
       user.first_name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
     return (
+      <div className="stories-section">
+        <h2>Истории</h2>
+        <form onSubmit={handleStorySubmit} className="story-form">
+          <h3>{isStoryEditMode ? 'Редактировать историю' : 'Добавить новую историю'}</h3>
+          <div>
+            <label>Изображение:</label>
+            {newStoryImagePreview && (
+              <div className="image-preview-container">
+                <img
+                  src={newStoryImagePreview}
+                  alt="Превью"
+                  className="image-preview"
+                  style={{ maxWidth: '200px', borderRadius: '8px', margin: '10px 0' }}
+                />
+              </div>
+            )}
+            <input
+              type="file"
+              onChange={handleStoryImageChange}
+              accept="image/*"
+              required={!isStoryEditMode}
+            />
+          </div>
+          <button type="submit" className="submit-button">
+            {isStoryEditMode ? 'Обновить' : 'Добавить'}
+          </button>
+          {isStoryEditMode && (
+            <button
+              type="button"
+              onClick={resetStoryForm}
+              className="cancel-button"
+              style={{ marginLeft: '10px' }}
+            >
+              Отмена
+            </button>
+          )}
+        </form>
+  
+        <div className="stories-list">
+          <h3>Список историй</h3>
+          {stories.length > 0 ? (
+            <div className="story-cards">
+              {stories.map((story) => (
+                <div key={story.id} className="story-card">
+                  <img
+                    src={story.image}
+                    alt="История"
+                    className="story-image"
+                    style={{ maxWidth: '150px', borderRadius: '8px' }}
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/150?text=Image+Not+Found';
+                    }}
+                  />
+                  <p>Создано: {new Date(story.created_at).toLocaleString()}</p>
+                  <div className="story-buttons">
+                    <button className="edit-button" onClick={() => handleEditStory(story)}>
+                      Редактировать
+                    </button>
+                    <button className="delete-button" onClick={() => handleDeleteStory(story.id)}>
+                      Удалить
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>Истории отсутствуют</p>
+          )}
+        </div>
+      </div>
+    );
+    return (
+      
       <div className="users-section">
         <h2>
           Пользователи <span className="user-count">({filteredUsers.length})</span>
@@ -623,22 +792,6 @@ function AdminPanel() {
               <div key={user.user_id} className="user-card">
                 <h3>{user.first_name}</h3>
                 <p>Email: {user.email}</p>
-                <p>
-                  Промокод: <strong>{promoCodes[user.user_id] || 'Нет'}</strong>
-                </p>
-                <label>
-                  Скидка (%):
-                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={userDiscounts[user.user_id] || ''}
-                    onChange={(e) => handleDiscountChange(user.user_id, e.target.value)}
-                  />
-                </label>
-                <button onClick={() => handleSendPromoCode(user.user_id)}>
-                  Отправить промокод
-                </button>
                 <button
                   onClick={() => handleDeleteUser(user.user_id)}
                   className="delete-btn"
@@ -1076,7 +1229,7 @@ function AdminPanel() {
         Выйти
       </button>
       {error && <p className="error">{error}</p>}
-
+      {renderStoriesSection()}
       {renderBranchesSection()}
       {renderCategoriesSection()}
       {renderPromoCodesSection()}
