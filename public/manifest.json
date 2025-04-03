@@ -1,0 +1,20 @@
+{
+  "short_name": "Boodai",
+  "name": "Boodai Pizza",
+  "icons": [
+    {
+      "src": "pizza_logo_192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "pizza_logo_512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#ff5722",
+  "background_color": "#ffffff"
+}

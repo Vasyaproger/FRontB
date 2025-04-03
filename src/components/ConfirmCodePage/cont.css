@@ -1,0 +1,106 @@
+/* Основной контейнер */
+.tety {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f4f4f9;
+    margin: 0;
+}
+
+/* Контейнер для формы подтверждения */
+.confirm-code-container1 {
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Заголовок */
+.tt1 {
+    font-size: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+/* Контейнер формы */
+.form-container5 {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Поле ввода */
+.input-field {
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    width: 100%;
+}
+
+/* Кнопка подтверждения */
+.confirm-button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+/* Кнопка повторной отправки */
+.resend-button {
+    background-color: #f1f1f1;
+    color: #333;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.resend-button:hover {
+    background-color: #ddd;
+}
+
+/* Сообщения об ошибках */
+.error-message {
+    color: red;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .confirm-code-container1 {
+        padding: 15px;
+    }
+
+    .tt1 {
+        font-size: 20px;
+    }
+
+    .input-field, .confirm-button, .resend-button {
+        font-size: 14px;
+        padding: 10px;
+    }
+}
+
+/* Адаптивность для очень маленьких экранов */
+@media (max-width: 480px) {
+    .tt1 {
+        font-size: 18px;
+    }
+
+    .input-field, .confirm-button, .resend-button {
+        font-size: 12px;
+        padding: 8px;
+    }
+}

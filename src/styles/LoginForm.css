@@ -1,0 +1,221 @@
+/* Основной стиль страницы */
+.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #F4A261; /* Тёплый оранжевый фон */
+    position: relative;
+    overflow: hidden;
+}
+
+/* Контейнер формы */
+.login-container {
+    background: #fff;
+    padding: 25px; /* Уменьшены отступы */
+    border-radius: 10px; /* Меньший радиус скругления */
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); /* Меньший размер тени */
+    width: 100%;
+    max-width: 320px; /* Уменьшен максимальный размер */
+    text-align: center;
+    position: relative;
+    z-index: 2;
+}
+
+/* Заголовок */
+.login-title {
+    font-size: 18px; /* Уменьшен размер шрифта */
+    font-weight: bold;
+    margin-bottom: 6px; /* Меньший отступ */
+    color: #E76F51;
+}
+
+/* Подзаголовок */
+.login-subtitle {
+    font-size: 13px; /* Уменьшен размер шрифта */
+    color: #6C757D;
+    margin-bottom: 18px; /* Меньший отступ */
+}
+
+/* Формовые элементы */
+.login-form .form-group {
+    margin-bottom: 12px; /* Меньше отступ */
+    text-align: left;
+}
+
+.form-group label {
+    font-size: 11px; /* Уменьшен размер шрифта */
+    color: #6C757D;
+}
+
+.form-input {
+    width: 100%;
+    padding: 6px 10px; /* Меньше отступы внутри поля */
+    border: 2px solid #ddd;
+    border-radius: 6px; /* Меньший радиус скругления */
+    font-size: 12px; /* Меньше шрифт */
+    color: #333;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.form-input:focus {
+    border-color: #E76F51;
+}
+
+/* Кнопка входа */
+.login-button {
+    height: 35px; /* Меньше высота */
+    width: 100%;
+    background-color: #F4A261;
+    color: white;
+    border: none;
+    border-radius: 12px; /* Меньше радиус скругления */
+    font-size: 14px; /* Меньше шрифт */
+    font-weight: bold;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: background-color 0.4s ease, transform 0.2s ease;
+}
+
+.login-button:hover {
+    background-color: #E76F51;
+    transform: scale(1.05);
+}
+
+.login-button::before {
+    content: '✩';
+    position: absolute;
+    color: #FFD700;
+    font-size: 12px;
+    top: 10%;
+    left: 20%;
+    animation: spinPulse 6s infinite ease-in-out;
+}
+
+.login-button::after {
+    content: '✩';
+    position: absolute;
+    color: #FFD700;
+    font-size: 16px;
+    bottom: 15%;
+    right: 10%;
+    animation: floatMove 10s infinite ease-in-out;
+}
+
+/* Ссылка на регистрацию */
+.register-link {
+    margin-top: 8px; /* Меньше отступ */
+    font-size: 11px; /* Меньше шрифт */
+    color: #6C757D;
+}
+
+.register-link a {
+    color: #E76F51;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.register-link a:hover {
+    text-decoration: underline;
+}
+
+/* Кнопка "Назад" */
+.back-button {
+    margin-top: 8px; /* Меньше отступ */
+    font-size: 12px; /* Меньше шрифт */
+    color: #E76F51;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+.back-button:hover {
+    color: #F4A261;
+}
+
+/* Кнопка переключения форм */
+.toggle-button {
+    margin-top: 12px; /* Меньше отступ */
+    font-size: 13px; /* Меньше шрифт */
+    color: #6C757D;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+.toggle-button:hover {
+    color: #E76F51;
+}
+
+/* Анимации звёзд */
+@keyframes spinPulse {
+    0% {
+        transform: scale(0.8) rotate(0deg);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.2) rotate(180deg);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(0.8) rotate(360deg);
+        opacity: 0.5;
+    }
+}
+
+@keyframes floatMove {
+    0% {
+        transform: translate(0, 0);
+    }
+    25% {
+        transform: translate(10px, -10px);
+    }
+    50% {
+        transform: translate(0, -20px);
+    }
+    75% {
+        transform: translate(-10px, 10px);
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+
+/* Звёзды в фоновом окружении */
+.login-page::before,
+.login-page::after {
+    content: '✩';
+    position: absolute;
+    color: rgba(255, 215, 0, 0.4); /* Золотой с прозрачностью */
+    font-size: 100px;
+    z-index: 1;
+    animation: backgroundStars 12s infinite ease-in-out;
+}
+
+.login-page::before {
+    top: -10%;
+    left: -20%;
+}
+
+.login-page::after {
+    bottom: -15%;
+    right: -10%;
+}
+
+@keyframes backgroundStars {
+    0% {
+        transform: scale(1) rotate(0deg);
+    }
+    50% {
+        transform: scale(1.2) rotate(180deg);
+    }
+    100% {
+        transform: scale(1) rotate(360deg);
+    }
+}

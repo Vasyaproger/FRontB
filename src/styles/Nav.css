@@ -1,0 +1,592 @@
+/* Основные стили для навбара */
+.navbar-container {
+  width: 100%;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.navbar-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+}
+
+.brand-container {
+  display: flex;
+  align-items: center;
+}
+
+.pizza-logo {
+  height: 70px;
+  margin-right: 10px;
+  background-color: #f68b2d;
+  border-radius: 50%;
+}
+@media (max-width: 768px) {
+  .pizza-logo {
+    display: none;
+  }
+}
+
+.brand-name {
+  font-size: 28px;
+  font-weight: 1000;
+  color: #ff8f27;
+  margin: 0;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 20px;
+}
+
+.admin-button {
+  background-color: #ff9f43;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.admin-button:hover {
+  background-color: #e67e22;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Бургер-меню */
+.hamburger-menu {
+  display: none;
+  cursor: pointer;
+}
+
+.hamburger-icon {
+  font-size: 28px;
+  color: #333;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.login-btn {
+  height: 42px; /* Уменьшаем высоту кнопки */
+  width: 120px; /* Уменьшаем ширину кнопки для компактности */
+  background-color: #ff8d32; /* Теплый оранжевый цвет */
+  color: white; /* Белый текст */
+  border: 2px solid transparent; /* Без обводки */
+  border-radius: 30px; /* Округлые углы */
+  font-size: 14px; /* Уменьшаем размер шрифта для компактности */
+  font-weight: bold; /* Жирный шрифт */
+  text-transform: uppercase; /* Заглавные буквы */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px; /* Немного отступов по бокам */
+  position: relative;
+  overflow: hidden;
+  transition: background-color 0.4s ease, transform 0.2s ease,
+    box-shadow 0.3s ease;
+}
+
+/* Эффект наведения */
+.login-btn:hover {
+  background-color: #e76f51; /* Темный оттенок оранжевого для эффекта hover */
+  transform: scale(1.05); /* Легкое увеличение кнопки */
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3); /* Глубокая тень для эффекта глубины */
+}
+
+/* Звезды */
+.login-btn::before,
+.login-btn::after {
+  content: "✩"; /* Звезда */
+  position: absolute;
+  color: #ffd700; /* Золотой цвет звёзд */
+  transition: opacity 0.3s ease, transform 0.4s ease, box-shadow 0.5s ease;
+  pointer-events: none; /* Звезды не должны блокировать клики */
+  opacity: 0.6;
+}
+
+/* Маленькая звезда */
+.login-btn::before {
+  font-size: 12px;
+  top: -10%;
+  left: 20%;
+  animation: spinPulse 8s infinite ease-in-out; /* Эффект пульсации с вращением */
+}
+
+/* Большая звезда */
+.login-btn::after {
+  font-size: 18px;
+  bottom: -20%;
+  right: 10%;
+  animation: floatMove 12s infinite ease-in-out; /* Плавное перемещение */
+}
+
+/* Анимация пульсации и вращения для маленькой звезды */
+@keyframes spinPulse {
+  0% {
+    transform: scale(0.8) rotate(0deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8) rotate(360deg);
+    opacity: 0.5;
+  }
+}
+
+/* Анимация плавающего движения для большой звезды */
+@keyframes floatMove {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(10px, -10px);
+  }
+  50% {
+    transform: translate(0, -20px);
+  }
+  75% {
+    transform: translate(-10px, 10px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* Секции ниже навбара */
+
+.info-btn {
+  background-color: #ff8f27;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  box-shadow: 0 0 70px #ff8f27;
+  font-size: 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, box-shadow 0.2s ease;
+}
+.iuc {
+  color: white;
+}
+.info-btn:hover .iuc {
+  transform: rotate(13deg) scale(1.8);
+  color: #ff8f27;
+}
+.info-btn:hover {
+  box-shadow: 0 0 0 #ff8f27;
+  background-color: white;
+  border-radius: 50%;
+}
+.navbar-links-container {
+  width: 75%;
+  margin: 0 auto 30px;
+}
+.popup-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 1000;
+  animation: fush 0.4s linear;
+}
+@keyframes fush {
+  0% {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.popup-content {
+  background-color: #fff;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+  text-align: center;
+  gap: 20px;
+}
+.about-link {
+  font-size: 30px;
+  text-decoration: none;
+  background-color: #ff8418;
+  padding: 5px 15px;
+  color: white;
+  font-weight: bolder;
+  border-radius: 10px;
+}
+.phone-number {
+  font-size: 20px;
+  font-weight: bold;
+  border-radius: 8px;
+  color: white;
+  padding: 6px 2px;
+  background-color: #ff8418;
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.phone-number:hover {
+  transform: scale(1.05);
+}
+
+.social-links {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.social-item {
+  display: flex;
+  justify-content: center;
+  width: 50%;
+  padding: 8px;
+  border-radius: 12px;
+  background-color: #ff8418;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.social-item a {
+  color: white;
+  font-weight: bolder;
+  font-size: 20px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.social-item:hover {
+  background-color: #ff5722;
+}
+
+.social-item:hover a {
+  color: white;
+}
+
+.icon {
+  font-size: 30px;
+}
+
+.closE-btn {
+  width: 120px;
+  height: 45px;
+  background-color: #ff5722;
+  color: white;
+  font-size: 20px;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.closE-btn:hover {
+  background-color: #e64a19;
+}
+
+@media (max-width: 768px) {
+  .social-item {
+    width: 80%;
+  }
+  .social-links {
+    width: 100%;
+  }
+
+  .popup-content {
+    padding: 30px;
+  }
+  .phone-number,
+  .about-link,
+  .social-item,
+  .close-btn {
+    width: 90%;
+  }
+}
+
+.Img_carusel {
+  width: 100%;
+}
+/* Стили для модального окна */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 111;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.75); /* Более темный прозрачный фон */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(8px); /* Более размыт фон */
+}
+
+.modal-box {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.15),
+    rgba(0, 0, 0, 0.15)
+  ); /* Градиентный полупрозрачный фон */
+  border-radius: 20px; /* Более плавные углы */
+  padding: 30px;
+  width: 80%;
+  max-width: 500px;
+  color: white;
+  backdrop-filter: blur(15px) brightness(0.9); /* Сильное размытие и яркость */
+  position: relative;
+  box-shadow: 0px 8px 40px rgba(0, 0, 0, 0.7); /* Глубокая тень */
+  animation: modalFadeIn 0.4s ease;
+  transition: all 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px); /* Более выразительная анимация */
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.close-modal-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 24px;
+  color: #ff9f43;
+  transition: transform 0.2s, color 0.2s;
+}
+
+.close-modal-btn:hover {
+  color: #e67e22;
+  transform: rotate(90deg); /* Эффект вращения при наведении */
+}
+
+.modal-box form div {
+  margin-bottom: 15px;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.submit-button {
+  background-color: #ff9f43;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  width: 80%;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  transition: background-color 0.3s ease, transform 0.2s;
+  box-shadow: 0 4px 15px rgba(119, 58, 0, 0.6); /* Более яркий эффект тени кнопки */
+}
+
+.submit-button:hover {
+  background-color: #e67e22;
+}
+.user-info_box {
+  width: 90%;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 3%;
+  display: flex;
+  justify-content: space-between;
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.user-icon {
+  font-size: 30px;
+  color: #333;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.user-info p {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  z-index: 10;
+}
+
+.logout-btn {
+  background-color: #e74c3c;
+  color: #fff;
+  border: none;
+  padding: 8px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.logout-btn:hover {
+  background-color: #c0392b;
+}
+
+/* Адаптивные стили */
+@media (max-width: 817px) {
+  .popup-content {
+    flex-direction: column;
+  }
+  .navbar-links-container {
+    width: 100%;
+  }
+
+  .user-info-mobile {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+  }
+  .modal-box {
+    padding: 20px;
+    max-width: 95%; /* Увеличиваем отступы от краев экрана */
+    margin: 0 auto; /* Центрируем */
+  }
+  input[type="text"],
+  input[type="email"],
+  input[type="password"] {
+    font-size: 14px;
+  }
+
+  .submit-button {
+    font-size: 14px;
+    padding: 12px;
+  }
+
+  .close-modal-btn {
+    font-size: 20px;
+  }
+
+  .mobile-menu {
+    position: absolute;
+    top: 70px;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+    background-color: white;
+  }
+
+  .mobile-menu .navbar-links {
+    flex-direction: column;
+    padding: 20px;
+    align-items: start;
+  }
+
+  .mobile-menu a {
+    padding: 10px 100px;
+  }
+
+  .mobile-login-button {
+    background-color: #c7b532d0;
+    color: #fff;
+    border: none;
+    padding: 5px 20px;
+    border-radius: 0 10px 0 10px;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.3s ease;
+  }
+
+  .mobile-login-button:hover {
+    background-color: #e67e22;
+  }
+
+  .admin-button {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-box {
+    padding: 15px;
+    max-width: 90%;
+  }
+
+  .pizza-logo {
+    height: 40px;
+  }
+
+  .brand-name {
+    font-size: 25px;
+  }
+
+  .admin-button {
+    padding: 8px 15px;
+  }
+}

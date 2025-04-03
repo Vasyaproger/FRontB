@@ -1,0 +1,120 @@
+/* Основной контейнер */
+.register-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #fff5e1; /* Теплый и приглашающий фон */
+  }
+  
+  .register-container {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+  }
+  
+  /* Заголовки */
+  .register-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #2c3e50; /* Темно-синий для заголовков */
+  }
+  
+  .register-subtitle {
+    font-size: 16px;
+    margin-bottom: 25px;
+    color: #7f8c8d; /* Мягкий серый для подзаголовков */
+  }
+  
+  /* Форма */
+  .register-form .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .register-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 15px;
+    color: #7f8c8d; /* Серый для текста */
+  }
+  
+  .register-form .form-input5 {
+    width: 94%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #333;
+    background-color: #fafafa; /* Легкий фон для инпутов */
+  }
+  
+  .register-button {
+    width: 100%;
+    background-color: #e67e22; /* Оранжевый для кнопки */
+    color: white;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .register-button:hover {
+    background-color: #d35400; /* Темнее при наведении */
+  }
+  
+  /* Адаптивный дизайн */
+  @media (max-width: 768px) {
+    .register-container {
+      padding: 25px;
+    }
+  
+    .register-title {
+      font-size: 22px;
+    }
+  
+    .register-subtitle {
+      font-size: 14px;
+    }
+  
+    .register-form .form-input5 {
+      font-size: 13px;
+      padding: 10px;
+    }
+  
+    .register-button {
+      font-size: 14px;
+      padding: 12px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .register-container {
+      padding: 20px;
+    }
+  
+    .register-title {
+      font-size: 20px;
+    }
+  
+    .register-subtitle {
+      font-size: 13px;
+    }
+  
+    .register-form .form-input5 {
+      font-size: 12px;
+      padding: 8px;
+    }
+  
+    .register-button {
+      font-size: 13px;
+      padding: 10px;
+    }
+  }
+  

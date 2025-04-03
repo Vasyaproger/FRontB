@@ -1,0 +1,138 @@
+/* Общий стиль */
+.lf-background-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #ffe5b4, #ffcc80); /* Теплый, уютный фон */
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  
+  .lf-form-container {
+    background: #fff;
+    padding: 35px 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+  }
+  
+  /* Заголовки */
+  .lf-title {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #2c3e50; /* Темный цвет для заголовка */
+  }
+  
+  /* Карточка */
+  .lf-card {
+    width: 100%;
+  }
+  
+  .lf-form-group {
+    margin-bottom: 20px;
+  }
+  
+  .lf-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #555; /* Серый цвет для текста */
+  }
+  
+  .lf-input-field {
+    width: 100%;
+    padding: 12px 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px; /* Мягкие углы для инпутов */
+    font-size: 1rem;
+    background-color: #fafafa; /* Легкий светлый фон для инпутов */
+  }
+  
+  .lf-input-field:focus {
+    outline: none;
+    border-color: #e67e22; /* Оранжевый цвет для фокуса */
+  }
+  
+  /* Кнопка */
+  .lf-button-group {
+    text-align: center;
+  }
+  
+  .lf-button {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    background: #e67e22; /* Теплый оранжевый для кнопки */
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .lf-button:hover {
+    background: #d35400; /* Темнее при наведении */
+  }
+  
+  .lf-register-link {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.9rem;
+    color: #777; /* Светлый серый цвет для ссылки */
+  }
+  
+  .lf-register-link a {
+    color: #e67e22;
+    text-decoration: none;
+  }
+  
+  .lf-register-link a:hover {
+    text-decoration: underline;
+  }
+  
+  /* Адаптивный дизайн */
+  @media (max-width: 768px) {
+    .lf-form-container {
+      padding: 30px 20px;
+    }
+  
+    .lf-title {
+      font-size: 1.5rem;
+    }
+  
+    .lf-input-field {
+      font-size: 0.9rem;
+      padding: 10px 8px;
+    }
+  
+    .lf-button {
+      font-size: 0.9rem;
+      padding: 10px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .lf-form-container {
+      padding: 20px 15px;
+    }
+  
+    .lf-title {
+      font-size: 1.3rem;
+    }
+  
+    .lf-input-field {
+      font-size: 0.8rem;
+      padding: 8px 6px;
+    }
+  
+    .lf-button {
+      font-size: 0.8rem;
+      padding: 8px;
+    }
+  }
+  

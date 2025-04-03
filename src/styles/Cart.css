@@ -1,0 +1,184 @@
+/* Стили для корзины */
+.cart {
+  position: fixed;
+  bottom: 2%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: auto;
+  max-width: 400px;
+  max-height: 300px; /* Максимальная высота корзины */
+  overflow-y: auto; /* Добавляем прокрутку при переполнении */
+  border-radius: 0 20px;
+  padding: 2px;
+  z-index: 800;
+}
+
+.box_add__Kr {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-radius: 0 20px;
+  padding: 3px 10px;
+}
+
+.Shop_bike {
+  color: white;
+  font-size: 30px;
+}
+
+.fx_add {
+  display: flex;
+  align-items: center;
+}
+
+.cart.cart-visible {
+  background: linear-gradient(90deg, #ffffff, #ff5900, #ff5900, #ffffff);
+  background-size: 400% 400%;
+  animation: animate_gradient 20s linear infinite;
+  transition: 0.3s;
+}
+
+.cart.cart-visible:hover {
+  animation: none;
+  background: violet;
+}
+
+@keyframes animate_gradient {
+  0% {
+    box-shadow: 0 0 0 0 rgba(228, 198, 25, 0);
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 1000% 50%;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(228, 198, 25, 0);
+    background-position: 0% 50%;
+  }
+}
+
+.cart h3 {
+  margin: 0;
+  font-size: 17.5px;
+  color: white;
+}
+
+/* Стили для окна выбора */
+.order-options {
+  position: fixed;
+  top: 0; /* Позиция окна на весь экран */
+  left: 0;
+  width: 100%; /* Ширина окна на весь экран */
+  height: 100vh; /* Высота на весь экран */
+  background: white;
+  z-index: 1000;
+  text-align: center;
+  overflow-y: auto; /* Прокрутка для длинного списка товаров */
+}
+
+.order-options h2 {
+  margin-bottom: 15px;
+  color: #ff5900; /* Цвет заголовка */
+}
+
+.order-options button {
+  margin: 5px;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  background-color: #ff5900; /* Цвет кнопок */
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s; /* Плавный переход */
+}
+
+.order-options button:hover {
+  background-color: #e65100; /* Темнее на наведение */
+}
+
+/* Стили для товаров в корзине */
+.cart-items {
+  display: flex;
+  flex-direction: column; /* Вертикальная компоновка для товаров */
+  max-height: 250px; /* Максимальная высота для прокрутки */
+  overflow-y: auto; /* Прокрутка для длинного списка товаров */
+}
+
+.cart-item {
+  display: flex; /* Используем флекс для горизонтального выравнивания */
+  align-items: center; /* Центрируем содержимое по вертикали */
+  border-bottom: 1px solid #ccc; /* Разделитель между товарами */
+  padding: 10px 0; /* Отступы сверху и снизу */
+}
+
+.cart-item-image {
+  width: 60px; /* Ширина картинки */
+  height: 60px; /* Высота картинки */
+  object-fit: cover; /* Обеспечиваем сохранение пропорций */
+  margin-right: 10px; /* Отступ справа от картинки */
+}
+
+.cart-item-details {
+  flex-grow: 1; /* Занимает оставшееся пространство */
+}
+
+.quantity-controls {
+  display: flex; /* Используем флекс для кнопок + и - */
+  align-items: center; /* Центрируем по вертикали */
+  margin-top: 5px; /* Отступ сверху */
+}
+
+.quantity-controls button {
+  width: 30px; /* Ширина кнопок */
+  height: 30px; /* Высота кнопок */
+  background-color: #ff5900; /* Цвет кнопок */
+  color: white; /* Цвет текста кнопок */
+  border: none; /* Убираем рамку */
+  border-radius: 5px; /* Скругление углов кнопок */
+  cursor: pointer; /* Указатель курсора на кнопках */
+  transition: background-color 0.3s; /* Плавный переход цвета */
+}
+
+.quantity-controls button:hover {
+  background-color: #e65100; /* Темнее на наведение */
+}
+
+/* Адаптация для мобильных устройств */
+@media (max-width: 768px) {
+  .cart {
+    width: 90%; /* Ширина корзины для мобильных */
+    max-width: none; /* Убираем ограничение по максимальной ширине */
+  }
+
+  .order-options {
+    padding: 15px; /* Уменьшаем отступы */
+  }
+
+}
+
+/* Адаптация для больших экранов */
+@media (min-width: 769px) {
+  .cart {
+    width: 80%; /* Ширина корзины для ПК */
+  }
+
+  .order-options {
+    width: 80%; /* Ширина окна выбора для ПК */
+  }
+}
+
+.close-button {
+  margin: 10px 0; /* Отступ сверху и снизу */
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  background-color: #ff5900; /* Цвет кнопки */
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s; /* Плавный переход */
+}
+
+.close-button:hover {
+  background-color: #e65100; /* Темнее на наведение */
+}
