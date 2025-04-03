@@ -37,7 +37,7 @@ const Adminlogin = () => {
       const response = await fetch('https://nukesul-brepb-651f.twc1.net/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
 
       if (!response.ok) {
@@ -72,7 +72,7 @@ const Adminlogin = () => {
               id='username'
               name='username'
               className='form-input1'
-              value={username}
+              value={email}
               onChange={handleInputChange}
               required
             />
