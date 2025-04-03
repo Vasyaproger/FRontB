@@ -42,6 +42,7 @@ function Products() {
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(!localStorage.getItem("selectedBranch"));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [orderHistory, setOrderHistory] = useState([]); // История заказов (опционально)
 
   const modalRef = useRef(null);
   const menuRef = useRef(null);
@@ -153,58 +154,82 @@ function Products() {
     }
   };
 
-  useEffect(() => {
+  const fetchProducts = async () => {
     if (!selectedBranch) return;
-
-    const fetchProducts = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/products`);
-        if (!response.ok) {
-          throw new Error("Ошибка при загрузке продуктов");
-        }
-        const data = await response.json();
-        if (!Array.isArray(data)) {
-          throw new Error("Неверный формат данных продуктов");
-        }
-        setProducts(data);
-        const groupedItems = data.reduce((acc, product) => {
-          acc[product.category] = acc[product.category] || [];
-          acc[product.category].push(product);
-          return acc;
-        }, {});
-
-        const sortedCategories = Object.fromEntries(
-          Object.entries(groupedItems).sort(([catA], [catB]) => {
-            const indexA = priority.indexOf(catA);
-            const indexB = priority.indexOf(catB);
-            return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
-          })
-        );
-
-        setMenuItems(sortedCategories);
-      } catch (error) {
-        console.error("Ошибка при загрузке продуктов:", error);
-        setError("Не удалось загрузить продукты: " + error.message);
-        setProducts([]);
-        setMenuItems({});
-      } finally {
-        setIsLoading(false);
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/products`);
+      if (!response.ok) {
+        throw new Error("Ошибка при загрузке продуктов");
       }
-    };
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error("Неверный формат данных продуктов");
+      }
+      setProducts(data);
+      const groupedItems = data.reduce((acc, product) => {
+        acc[product.category] = acc[product.category] || [];
+        acc[product.category].push(product);
+        return acc;
+      }, {});
 
-    fetchProducts();
-    const interval = setInterval(fetchProducts, 30000); // Обновление каждые 30 секунд
-    return () => clearInterval(interval);
+      const sortedCategories = Object.fromEntries(
+        Object.entries(groupedItems).sort(([catA], [catB]) => {
+          const indexA = priority.indexOf(catA);
+          const indexB = priority.indexOf(catB);
+          return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+        })
+      );
+
+      setMenuItems(sortedCategories);
+    } catch (error) {
+      console.error("Ошибка при загрузке продуктов:", error);
+      setError("Не удалось загрузить продукты: " + error.message);
+      setProducts([]);
+      setMenuItems({});
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchOrderHistory = async () => {
+    if (!selectedBranch) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/orders`);
+      if (!response.ok) {
+        throw new Error("Ошибка при загрузке истории заказов");
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error("Неверный формат данных истории заказов");
+      }
+      setOrderHistory(data);
+    } catch (error) {
+      console.error("Ошибка при загрузке истории заказов:", error);
+      setError("Не удалось загрузить историю заказов: " + error.message);
+      setOrderHistory([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBranches();
+  }, []);
+
+  useEffect(() => {
+    if (selectedBranch) {
+      fetchProducts();
+      fetchOrderHistory(); // Загружаем историю заказов при выборе филиала
+      const interval = setInterval(fetchProducts, 30000); // Обновление продуктов каждые 30 секунд
+      return () => clearInterval(interval);
+    }
   }, [selectedBranch]);
 
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
-
-  useEffect(() => {
-    fetchBranches();
-  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -324,7 +349,7 @@ function Products() {
 
   const handlePromoCodeSubmit = async () => {
     try {
-      const response = await fetch(`${baseURL}/api/validate-promo`, {
+      const response = await fetch(`${baseURL}/api/public/validate-promo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ promoCode }),
@@ -380,7 +405,7 @@ function Products() {
         discountedPrice: calculateDiscountedPrice(item.price || 0),
       }));
 
-      const response = await fetch(`${baseURL}/api/send-order`, {
+      const response = await fetch(`${baseURL}/api/public/send-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -402,6 +427,7 @@ function Products() {
       setCartItems([]);
       localStorage.removeItem("cartItems");
       setTimeout(() => setIsOrderSent(false), 4000);
+      fetchOrderHistory(); // Обновляем историю после отправки заказа
     } catch (error) {
       console.error("Ошибка при отправке заказа:", error);
       alert(error.message || "Ошибка при отправке заказа.");
@@ -466,6 +492,7 @@ function Products() {
     setIsBranchModalOpen(false);
     setProducts([]);
     setMenuItems({});
+    setOrderHistory([]);
   };
 
   const handleChangeBranch = () => {
@@ -547,7 +574,7 @@ function Products() {
                 >
                   <LazyImage
                     className="best-seller-product-image"
-                    src={`${baseURL}${product.image_url}`} // Обновлено для правильного пути к изображению
+                    src={`${baseURL}${product.image_url}`}
                     alt={product.name}
                     placeholder={`data:image/svg+xml,${encodeURIComponent(jpgPlaceholder)}`}
                   />
@@ -622,7 +649,7 @@ function Products() {
                       >
                         <LazyImage
                           className="menu-product-image"
-                          src={`${baseURL}${product.image_url}`} // Обновлено для правильного пути к изображению
+                          src={`${baseURL}${product.image_url}`}
                           alt={product.name}
                           placeholder={`data:image/svg+xml,${encodeURIComponent(jpgPlaceholder)}`}
                         />
@@ -641,6 +668,23 @@ function Products() {
                 </div>
               ))}
           </div>
+
+          {/* История заказов */}
+          {orderHistory.length > 0 && (
+            <div className="order-history">
+              <h2 className="Mark_Shop">История заказов</h2>
+              <div className="history-items">
+                {orderHistory.map((order) => (
+                  <div key={order.id} className="history-item">
+                    <p>Заказ #{order.id}</p>
+                    <p>Сумма: {order.total} Сом</p>
+                    <p>Дата: {new Date(order.created_at).toLocaleString()}</p>
+                    <p>Статус: {order.status}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -664,7 +708,7 @@ function Products() {
             </button>
             <div className="modal-body">
               <img
-                src={`${baseURL}${selectedProduct.product.image_url}`} // Обновлено для правильного пути к изображению
+                src={`${baseURL}${selectedProduct.product.image_url}`}
                 alt={selectedProduct.product.name}
                 className="modal-image"
               />
@@ -740,7 +784,7 @@ function Products() {
               const discountedPrice = calculateDiscountedPrice(price).toFixed(2);
               return (
                 <div key={item.id} className="order-item">
-                  <img src={`${baseURL}${item.image}`} alt={item.name} /> {/* Обновлено для правильного пути */}
+                  <img src={`${baseURL}${item.image}`} alt={item.name} />
                   <div className="order-item-info">
                     <h3>{item.name}</h3>
                     {discount > 0 ? (
