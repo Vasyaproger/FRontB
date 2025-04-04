@@ -503,12 +503,10 @@ function Products() {
       setIsLoading(false);
     }
   };
-
-  // Новая функция для загрузки историй
   const fetchStories = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${baseURL}/stories`);
+      const response = await fetch(`${baseURL}/api/public/stories`);
       if (!response.ok) throw new Error(`Ошибка при загрузке историй: ${response.status}`);
       const data = await response.json();
       setStories(Array.isArray(data) ? data : []);
