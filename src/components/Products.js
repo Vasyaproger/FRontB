@@ -43,7 +43,7 @@ function Products() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [orderHistory, setOrderHistory] = useState([]);
-
+  const [stories, setStories] = useState([]);
   const modalRef = useRef(null);
   const menuRef = useRef(null);
   const sectionRefs = useRef({});
@@ -192,27 +192,7 @@ function Products() {
     }
   };
 
-  const fetchOrderHistory = async () => {
-    if (!selectedBranch) return;
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/orders`);
-      if (!response.ok) {
-        throw new Error(`Ошибка при загрузке истории заказов: ${response.status}`);
-      }
-      const data = await response.json();
-      if (!Array.isArray(data)) {
-        throw new Error("Неверный формат данных истории заказов");
-      }
-      setOrderHistory(data);
-    } catch (error) {
-      console.error("Ошибка при загрузке истории заказов:", error);
-      setError("Не удалось загрузить историю заказов: " + error.message);
-      setOrderHistory([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   useEffect(() => {
     fetchBranches();
@@ -508,6 +488,42 @@ function Products() {
     const key = imageKey.split("/").pop(); // Извлекаем только имя файла (например, 174359528337.jpg)
     return `${baseURL}/product-image/${key}`;
   };
+  const fetchOrderHistory = async () => {
+    if (!selectedBranch) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/orders`);
+      if (!response.ok) throw new Error(`Ошибка при загрузке истории заказов: ${response.status}`);
+      const data = await response.json();
+      setOrderHistory(data);
+    } catch (error) {
+      console.error("Ошибка при загрузке истории заказов:", error);
+      setError("Не удалось загрузить историю заказов: " + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Новая функция для загрузки историй
+  const fetchStories = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${baseURL}/stories`);
+      if (!response.ok) throw new Error(`Ошибка при загрузке историй: ${response.status}`);
+      const data = await response.json();
+      setStories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Ошибка при загрузке историй:", error);
+      setError("Не удалось загрузить истории: " + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBranches();
+    fetchStories(); // Загружаем истории при монтировании компонента
+  }, []);
 
   return (
     <div className="menu-wrapper">
@@ -574,6 +590,27 @@ function Products() {
 
       {selectedBranch && products.length > 0 && (
         <>
+        {/* Добавляем секцию историй */}
+        {stories.length > 0 && (
+            <div className="stories-section">
+              <h2>Истории</h2>
+              <div className="stories-container">
+                {stories.map((story) => (
+                  <div key={story.id} className="story-item">
+                    <LazyImage
+                      src={story.image} // Предполагается, что image уже содержит полный URL
+                      alt="История"
+                      placeholder={jpgPlaceholder}
+                      className="story-image"
+                      onError={(e) => {
+                        e.target.src = jpgPlaceholder;
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <h2 className="Mark_Shop">Часто продаваемые товары</h2>
           <div className="best-sellers">
             {products

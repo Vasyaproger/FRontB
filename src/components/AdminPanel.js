@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../styles/AdminPanel.css";
 
 function AdminPanel() {
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState([]);
   const [name, setName] = useState("");
