@@ -48,7 +48,7 @@ function Products() {
   const menuRef = useRef(null);
   const sectionRefs = useRef({});
   const navigate = useNavigate();
-  const baseURL = "https://nukesul-brepb-651f.twc1.net";
+  const baseURL = "https://nukesul-brepb-651f.twc1.net"; // Бэкенд-сервер
 
   const categoryEmojis = {
     Пиццы: "🍕",
@@ -306,7 +306,7 @@ function Products() {
             ? selectedProduct.product[`price_${pizzaSize.toLowerCase()}`]
             : selectedProduct.product.price_single || selectedProduct.product.price || 0,
         quantity: 1,
-        image: selectedProduct.product.image, // Используем поле image напрямую
+        image: selectedProduct.product.image_url, // Используем image_url
       };
 
       const existingItemIndex = cartItems.findIndex((item) => item.id === itemToAdd.id);
@@ -502,6 +502,13 @@ function Products() {
     setIsBranchModalOpen(true);
   };
 
+  // Функция для получения URL изображения через бэкенд
+  const getImageUrl = (imageKey) => {
+    if (!imageKey) return jpgPlaceholder;
+    const key = imageKey.split("/").pop(); // Извлекаем только имя файла (например, 174359528337.jpg)
+    return `${baseURL}/product-image/${key}`;
+  };
+
   return (
     <div className="menu-wrapper">
       {isLoading && (
@@ -579,10 +586,10 @@ function Products() {
                 >
                   <LazyImage
                     className="best-seller-product-image"
-                    src={product.image} // Используем поле image напрямую
+                    src={getImageUrl(product.image_url)} // Используем функцию для получения URL
                     alt={product.name}
                     placeholder={jpgPlaceholder}
-                    onError={() => console.error(`Ошибка загрузки изображения: ${product.image}`)}
+                    onError={() => console.error(`Ошибка загрузки изображения: ${product.image_url}`)}
                   />
                   <div className="best-seller-product-info">
                     <h3 className="best-seller-product-title">{product.name}</h3>
@@ -655,10 +662,10 @@ function Products() {
                       >
                         <LazyImage
                           className="menu-product-image"
-                          src={product.image} // Используем поле image напрямую
+                          src={getImageUrl(product.image_url)} // Используем функцию для получения URL
                           alt={product.name}
                           placeholder={jpgPlaceholder}
-                          onError={() => console.error(`Ошибка загрузки изображения: ${product.image}`)}
+                          onError={() => console.error(`Ошибка загрузки изображения: ${product.image_url}`)}
                         />
                         <div className="menu-product-info">
                           <h3 className="menu-product-title">{product.name}</h3>
@@ -718,10 +725,10 @@ function Products() {
             </button>
             <div className="modal-body">
               <img
-                src={selectedProduct.product.image} // Используем поле image напрямую
+                src={getImageUrl(selectedProduct.product.image_url)} // Используем функцию для получения URL
                 alt={selectedProduct.product.name}
                 className="modal-image"
-                onError={() => console.error(`Ошибка загрузки изображения: ${selectedProduct.product.image}`)}
+                onError={() => console.error(`Ошибка загрузки изображения: ${selectedProduct.product.image_url}`)}
               />
               <div className="modal-info">
                 <h1>{selectedProduct.product.name}</h1>
@@ -796,7 +803,7 @@ function Products() {
               return (
                 <div key={item.id} className="order-item">
                   <img
-                    src={item.image} // Используем поле image напрямую
+                    src={getImageUrl(item.image)} // Используем функцию для получения URL
                     alt={item.name}
                     onError={() => console.error(`Ошибка загрузки изображения: ${item.image}`)}
                   />
@@ -854,104 +861,110 @@ function Products() {
                 value={promoCode}
                 onChange={(e) => setPromoCode(e.target.value)}
               />
-              <button onClick={handlePromoCodeSubmit}>Применить</button>
+                           <button onClick={handlePromoCodeSubmit}>Применить</button>
             </div>
-            <h2>{isOrderSection ? "С собой" : "Доставка"}</h2>
             {isOrderSection ? (
-              <>
-                <div className="input-group">
-                  <label htmlFor="order-name">Имя:</label>
+              <div className="order-form">
+                <h3>Данные для заказа (с собой)</h3>
+                <div className="form-group">
+                  <label htmlFor="name">Имя:</label>
                   <input
                     type="text"
+                    id="name"
                     name="name"
                     value={orderDetails.name}
                     onChange={handleOrderChange}
+                    placeholder="Введите ваше имя"
                   />
                   {formErrors.name && <p className="error">{formErrors.name}</p>}
                 </div>
-                <div className="input-group">
-                  <label htmlFor="order-phone">Телефон:</label>
+                <div className="form-group">
+                  <label htmlFor="phone">Телефон:</label>
                   <input
-                    type="tel"
+                    type="text"
+                    id="phone"
                     name="phone"
                     value={orderDetails.phone}
                     onChange={handleOrderChange}
+                    placeholder="+996123456789"
                   />
                   {formErrors.phone && <p className="error">{formErrors.phone}</p>}
                 </div>
-                <div className="input-group">
-                  <label htmlFor="order-comments">Комментарии:</label>
+                <div className="form-group">
+                  <label htmlFor="comments">Комментарии:</label>
                   <textarea
+                    id="comments"
                     name="comments"
                     value={orderDetails.comments}
                     onChange={handleOrderChange}
+                    placeholder="Дополнительные пожелания"
                   />
                 </div>
-              </>
+              </div>
             ) : (
-              <>
-                <div className="input-group">
-                  <label htmlFor="delivery-name">Имя:</label>
+              <div className="order-form">
+                <h3>Данные для доставки</h3>
+                <div className="form-group">
+                  <label htmlFor="name">Имя:</label>
                   <input
                     type="text"
+                    id="name"
                     name="name"
                     value={deliveryDetails.name}
                     onChange={handleDeliveryChange}
+                    placeholder="Введите ваше имя"
                   />
                   {formErrors.name && <p className="error">{formErrors.name}</p>}
                 </div>
-                <div className="input-group">
-                  <label htmlFor="delivery-phone">Телефон:</label>
+                <div className="form-group">
+                  <label htmlFor="phone">Телефон:</label>
                   <input
-                    type="tel"
+                    type="text"
+                    id="phone"
                     name="phone"
                     value={deliveryDetails.phone}
                     onChange={handleDeliveryChange}
+                    placeholder="+996123456789"
                   />
                   {formErrors.phone && <p className="error">{formErrors.phone}</p>}
                 </div>
-                <div className="input-group">
-                  <label htmlFor="delivery-address">Адрес:</label>
+                <div className="form-group">
+                  <label htmlFor="address">Адрес:</label>
                   <input
                     type="text"
+                    id="address"
                     name="address"
                     value={deliveryDetails.address}
                     onChange={handleDeliveryChange}
+                    placeholder="Введите адрес доставки"
                   />
                   {formErrors.address && <p className="error">{formErrors.address}</p>}
                 </div>
-                <div className="input-group">
-                  <label htmlFor="delivery-comments">Комментарии:</label>
+                <div className="form-group">
+                  <label htmlFor="comments">Комментарии:</label>
                   <textarea
+                    id="comments"
                     name="comments"
                     value={deliveryDetails.comments}
                     onChange={handleDeliveryChange}
+                    placeholder="Дополнительные пожелания"
                   />
                 </div>
-              </>
+              </div>
             )}
-            <div className="buttons">
-              <button className="continue-button" onClick={handleCartClose}>
-                Продолжить
-              </button>
-              <button className="confirm-button" onClick={sendOrderToServer}>
-                Подтвердить заказ
-              </button>
-            </div>
+            <button className="submit-order" onClick={sendOrderToServer}>
+              Оформить заказ
+            </button>
+            <button className="close-cart" onClick={handleCartClose}>
+              Закрыть корзину
+            </button>
           </div>
         </div>
       )}
 
       {isOrderSent && (
-        <div className="success-modal">
-          <div className="success-modal-content">
-            <div className="checkmark-circle">
-              <div className="checkmark"></div>
-            </div>
-            <div className="success-message">
-              Товар отправлен! Наши сотрудники свяжутся с вами.
-            </div>
-          </div>
+        <div className="order-confirmation">
+          <p>Заказ успешно отправлен! Спасибо за ваш заказ.</p>
         </div>
       )}
     </div>
