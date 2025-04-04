@@ -24,7 +24,11 @@ function Products() {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("");
   const [isOrderSection, setIsOrderSection] = useState(false);
-  const [orderDetails, setOrderDetails] = useState({ name: "", phone: "", comments: "" });
+  const [orderDetails, setOrderDetails] = useState({
+    name: "",
+    phone: "",
+    comments: "",
+  });
   const [deliveryDetails, setDeliveryDetails] = useState({
     name: "",
     phone: "",
@@ -39,7 +43,9 @@ function Products() {
   const [selectedBranch, setSelectedBranch] = useState(() => {
     return localStorage.getItem("selectedBranch") || null;
   });
-  const [isBranchModalOpen, setIsBranchModalOpen] = useState(!localStorage.getItem("selectedBranch"));
+  const [isBranchModalOpen, setIsBranchModalOpen] = useState(
+    !localStorage.getItem("selectedBranch")
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [orderHistory, setOrderHistory] = useState([]);
@@ -137,7 +143,10 @@ function Products() {
         setIsBranchModalOpen(true);
         return;
       }
-      if (selectedBranch && !data.some((branch) => branch.id === parseInt(selectedBranch))) {
+      if (
+        selectedBranch &&
+        !data.some((branch) => branch.id === parseInt(selectedBranch))
+      ) {
         setSelectedBranch(null);
         localStorage.removeItem("selectedBranch");
         setIsBranchModalOpen(true);
@@ -158,7 +167,9 @@ function Products() {
     if (!selectedBranch) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/products`);
+      const response = await fetch(
+        `${baseURL}/api/public/branches/${selectedBranch}/products`
+      );
       if (!response.ok) {
         throw new Error(`Ошибка при загрузке продуктов: ${response.status}`);
       }
@@ -177,7 +188,10 @@ function Products() {
         Object.entries(groupedItems).sort(([catA], [catB]) => {
           const indexA = priority.indexOf(catA);
           const indexB = priority.indexOf(catB);
-          return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+          return (
+            (indexA === -1 ? Infinity : indexA) -
+            (indexB === -1 ? Infinity : indexB)
+          );
         })
       );
 
@@ -191,8 +205,6 @@ function Products() {
       setIsLoading(false);
     }
   };
-
-
 
   useEffect(() => {
     fetchBranches();
@@ -237,7 +249,9 @@ function Products() {
 
   useEffect(() => {
     if (!menuRef.current || !activeCategory) return;
-    const activeItem = menuRef.current.querySelector(`a[href="#${activeCategory}"]`);
+    const activeItem = menuRef.current.querySelector(
+      `a[href="#${activeCategory}"]`
+    );
     if (activeItem) {
       activeItem.scrollIntoView({
         behavior: "smooth",
@@ -263,7 +277,12 @@ function Products() {
   };
 
   const isPizza = (product) => {
-    return product && product.price_small && product.price_medium && product.price_large;
+    return (
+      product &&
+      product.price_small &&
+      product.price_medium &&
+      product.price_large
+    );
   };
 
   const handleAddToCart = () => {
@@ -284,16 +303,22 @@ function Products() {
         price:
           isPizza(selectedProduct.product) && pizzaSize
             ? selectedProduct.product[`price_${pizzaSize.toLowerCase()}`]
-            : selectedProduct.product.price_single || selectedProduct.product.price || 0,
+            : selectedProduct.product.price_single ||
+              selectedProduct.product.price ||
+              0,
         quantity: 1,
         image: selectedProduct.product.image_url, // Используем image_url
       };
 
-      const existingItemIndex = cartItems.findIndex((item) => item.id === itemToAdd.id);
+      const existingItemIndex = cartItems.findIndex(
+        (item) => item.id === itemToAdd.id
+      );
 
       if (existingItemIndex > -1) {
         const updatedCartItems = cartItems.map((item, index) =>
-          index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
+          index === existingItemIndex
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         );
         setCartItems(updatedCartItems);
       } else {
@@ -364,10 +389,12 @@ function Products() {
         errors.phone = "Неверный формат телефона (например, +996123456789)";
     } else {
       if (!deliveryDetails.name) errors.name = "Пожалуйста, заполните имя";
-      if (!deliveryDetails.phone) errors.phone = "Пожалуйста, заполните телефон";
+      if (!deliveryDetails.phone)
+        errors.phone = "Пожалуйста, заполните телефон";
       else if (!validatePhone(deliveryDetails.phone))
         errors.phone = "Неверный формат телефона (например, +996123456789)";
-      if (!deliveryDetails.address) errors.address = "Пожалуйста, заполните адрес";
+      if (!deliveryDetails.address)
+        errors.address = "Пожалуйста, заполните адрес";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -492,8 +519,13 @@ function Products() {
     if (!selectedBranch) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/orders`);
-      if (!response.ok) throw new Error(`Ошибка при загрузке истории заказов: ${response.status}`);
+      const response = await fetch(
+        `${baseURL}/api/public/branches/${selectedBranch}/orders`
+      );
+      if (!response.ok)
+        throw new Error(
+          `Ошибка при загрузке истории заказов: ${response.status}`
+        );
       const data = await response.json();
       setOrderHistory(data);
     } catch (error) {
@@ -507,9 +539,11 @@ function Products() {
     setIsLoading(true);
     try {
       const response = await fetch(`${baseURL}/api/public/stories`);
-      if (!response.ok) throw new Error(`Ошибка при загрузке историй: ${response.status}`);
-      const data = await response.json();
-      setStories(Array.isArray(data) ? data : []);
+      if (!response.ok) {
+        throw new Error(`Ошибка при загрузке историй: ${response.status}`);
+      }
+      const storiesData = await response.json();
+      setStories(Array.isArray(storiesData) ? storiesData : []);
     } catch (error) {
       console.error("Ошибка при загрузке историй:", error);
       setError("Не удалось загрузить истории: " + error.message);
@@ -537,14 +571,19 @@ function Products() {
           className="modal-overlay"
           onClick={() => branches.length > 0 && setIsBranchModalOpen(false)}
         >
-          <div className="branch-modal-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="branch-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="modal-title">Выберите филиал</h2>
             <div className="branch-list">
               {branches.length > 0 ? (
                 branches.map((branch) => (
                   <div
                     key={branch.id}
-                    className={`branch-item ${selectedBranch === branch.id ? "selected" : ""}`}
+                    className={`branch-item ${
+                      selectedBranch === branch.id ? "selected" : ""
+                    }`}
                     onClick={() => handleBranchSelect(branch.id)}
                   >
                     <div className="branch-name">{branch.name}</div>
@@ -561,7 +600,10 @@ function Products() {
               )}
             </div>
             {branches.length > 0 && (
-              <button className="close-modal-button" onClick={() => setIsBranchModalOpen(false)}>
+              <button
+                className="close-modal-button"
+                onClick={() => setIsBranchModalOpen(false)}
+              >
                 Закрыть
               </button>
             )}
@@ -574,9 +616,14 @@ function Products() {
           {selectedBranch && branches.length > 0 ? (
             <>
               <span>
-                Филиал: {branches.find((b) => b.id === parseInt(selectedBranch))?.name || "Неизвестный филиал"}
+                Филиал:{" "}
+                {branches.find((b) => b.id === parseInt(selectedBranch))
+                  ?.name || "Неизвестный филиал"}
               </span>
-              <button onClick={handleChangeBranch} className="change-branch-btn">
+              <button
+                onClick={handleChangeBranch}
+                className="change-branch-btn"
+              >
                 Сменить
               </button>
             </>
@@ -588,22 +635,26 @@ function Products() {
 
       {selectedBranch && products.length > 0 && (
         <>
-        {/* Добавляем секцию историй */}
-        {stories.length > 0 && (
+          {/* Добавляем секцию историй */}
+          {stories.length > 0 && (
             <div className="stories-section">
               <h2>Истории</h2>
-              <div className="stories-container">
+              <div className="stories-list">
                 {stories.map((story) => (
-                  <div key={story.id} className="story-item">
-                    <LazyImage
-                      src={story.image} // Предполагается, что image уже содержит полный URL
+                  <div key={story.id} className="story-card">
+                    <img
+                      src={story.image}
                       alt="История"
-                      placeholder={jpgPlaceholder}
                       className="story-image"
+                      style={{ maxWidth: "150px", borderRadius: "8px" }}
                       onError={(e) => {
-                        e.target.src = jpgPlaceholder;
+                        e.target.src =
+                          "https://via.placeholder.com/150?text=Image+Not+Found";
                       }}
                     />
+                    <p>
+                      Создано: {new Date(story.created_at).toLocaleString()}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -612,29 +663,41 @@ function Products() {
           <h2 className="Mark_Shop">Часто продаваемые товары</h2>
           <div className="best-sellers">
             {products
-              .filter((product) => product.category === "Часто продаваемые товары")
+              .filter(
+                (product) => product.category === "Часто продаваемые товары"
+              )
               .map((product) => (
                 <div
                   className="best-seller-product"
                   key={product.id}
-                  onClick={() => handleProductClick(product, "Часто продаваемые товары")}
+                  onClick={() =>
+                    handleProductClick(product, "Часто продаваемые товары")
+                  }
                 >
                   <LazyImage
                     className="best-seller-product-image"
                     src={getImageUrl(product.image_url)} // Используем функцию для получения URL
                     alt={product.name}
                     placeholder={jpgPlaceholder}
-                    onError={() => console.error(`Ошибка загрузки изображения: ${product.image_url}`)}
+                    onError={() =>
+                      console.error(
+                        `Ошибка загрузки изображения: ${product.image_url}`
+                      )
+                    }
                   />
                   <div className="best-seller-product-info">
-                    <h3 className="best-seller-product-title">{product.name}</h3>
+                    <h3 className="best-seller-product-title">
+                      {product.name}
+                    </h3>
                     <div className="best-seller-product-price">
                       {isPizza(product) ? (
                         <p className="best-sellers_price_p">
                           {product.price_small} - {product.price_large} Сом
                         </p>
                       ) : product.price_single ? (
-                        <p className="best-sellers_price_p">Цена: {product.price_single} Сом</p>
+                        <p className="best-sellers_price_p">
+                          Цена: {product.price_single} Сом
+                        </p>
                       ) : (
                         <p className="best-sellers_price_p">Цена не указана</p>
                       )}
@@ -648,7 +711,9 @@ function Products() {
             <img className="halal_img" src={halal} alt="Halal" />
             <h1 className="halal_title">
               Без свинины
-              <p className="halal_subtitle">Мы готовим из цыпленка и говядины</p>
+              <p className="halal_subtitle">
+                Мы готовим из цыпленка и говядины
+              </p>
             </h1>
           </div>
 
@@ -700,16 +765,24 @@ function Products() {
                           src={getImageUrl(product.image_url)} // Используем функцию для получения URL
                           alt={product.name}
                           placeholder={jpgPlaceholder}
-                          onError={() => console.error(`Ошибка загрузки изображения: ${product.image_url}`)}
+                          onError={() =>
+                            console.error(
+                              `Ошибка загрузки изображения: ${product.image_url}`
+                            )
+                          }
                         />
                         <div className="menu-product-info">
                           <h3 className="menu-product-title">{product.name}</h3>
                           <p className="menu-product-price">
                             {isPizza(product)
                               ? `${product.price_small} - ${product.price_large} Сом`
-                              : `${product.price_single || product.price || 0} Сом`}
+                              : `${
+                                  product.price_single || product.price || 0
+                                } Сом`}
                           </p>
-                          <p className="menu-product-description">{product.description}</p>
+                          <p className="menu-product-description">
+                            {product.description}
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -740,7 +813,9 @@ function Products() {
         <div
           ref={modalRef}
           {...swipeHandlers}
-          className={`modal ${isProductModalOpen ? "see" : ""} ${isModalClosing ? "closing" : ""}`}
+          className={`modal ${isProductModalOpen ? "see" : ""} ${
+            isModalClosing ? "closing" : ""
+          }`}
           onClick={handleOutsideClick}
         >
           <div
@@ -749,7 +824,9 @@ function Products() {
               modalRef.current
                 ? {
                     transform: `translateY(${modalPosition}px)`,
-                    transition: isModalClosing ? "transform 0.3s ease, opacity 0.3s ease" : "none",
+                    transition: isModalClosing
+                      ? "transform 0.3s ease, opacity 0.3s ease"
+                      : "none",
                     opacity: isModalClosing ? 0 : 1,
                   }
                 : {}
@@ -763,7 +840,11 @@ function Products() {
                 src={getImageUrl(selectedProduct.product.image_url)} // Используем функцию для получения URL
                 alt={selectedProduct.product.name}
                 className="modal-image"
-                onError={() => console.error(`Ошибка загрузки изображения: ${selectedProduct.product.image_url}`)}
+                onError={() =>
+                  console.error(
+                    `Ошибка загрузки изображения: ${selectedProduct.product.image_url}`
+                  )
+                }
               />
               <div className="modal-info">
                 <h1>{selectedProduct.product.name}</h1>
@@ -773,19 +854,25 @@ function Products() {
                     <h3>Выберите размер:</h3>
                     <div className="pizza-sizes">
                       <div
-                        className={`pizza-size ${pizzaSize === "small" ? "selected" : ""}`}
+                        className={`pizza-size ${
+                          pizzaSize === "small" ? "selected" : ""
+                        }`}
                         onClick={() => setPizzaSize("small")}
                       >
                         Маленькая
                       </div>
                       <div
-                        className={`pizza-size ${pizzaSize === "medium" ? "selected" : ""}`}
+                        className={`pizza-size ${
+                          pizzaSize === "medium" ? "selected" : ""
+                        }`}
                         onClick={() => setPizzaSize("medium")}
                       >
                         Средняя
                       </div>
                       <div
-                        className={`pizza-size ${pizzaSize === "large" ? "selected" : ""}`}
+                        className={`pizza-size ${
+                          pizzaSize === "large" ? "selected" : ""
+                        }`}
                         onClick={() => setPizzaSize("large")}
                       >
                         Большая
@@ -797,8 +884,12 @@ function Products() {
                   Добавить в корзину за{" "}
                   <span className="green-price">
                     {isPizza(selectedProduct.product) && pizzaSize
-                      ? selectedProduct.product[`price_${pizzaSize.toLowerCase()}`]
-                      : selectedProduct.product.price_single || selectedProduct.product.price || 0}
+                      ? selectedProduct.product[
+                          `price_${pizzaSize.toLowerCase()}`
+                        ]
+                      : selectedProduct.product.price_single ||
+                        selectedProduct.product.price ||
+                        0}
                   </span>{" "}
                   Сом
                 </button>
@@ -824,30 +915,43 @@ function Products() {
       {isCartOpen && (
         <div className="order-page">
           <div className="button-group">
-            <button className="button_buy" onClick={() => setIsOrderSection(false)}>
+            <button
+              className="button_buy"
+              onClick={() => setIsOrderSection(false)}
+            >
               Доставка
             </button>
-            <button className="button_buy" onClick={() => setIsOrderSection(true)}>
+            <button
+              className="button_buy"
+              onClick={() => setIsOrderSection(true)}
+            >
               С собой
             </button>
           </div>
           <div className="items-section">
             {cartItems.map((item) => {
               const price = item.price || 0;
-              const discountedPrice = calculateDiscountedPrice(price).toFixed(2);
+              const discountedPrice =
+                calculateDiscountedPrice(price).toFixed(2);
               return (
                 <div key={item.id} className="order-item">
                   <img
                     src={getImageUrl(item.image)} // Используем функцию для получения URL
                     alt={item.name}
-                    onError={() => console.error(`Ошибка загрузки изображения: ${item.image}`)}
+                    onError={() =>
+                      console.error(
+                        `Ошибка загрузки изображения: ${item.image}`
+                      )
+                    }
                   />
                   <div className="order-item-info">
                     <h3>{item.name}</h3>
                     {discount > 0 ? (
                       <>
                         <p className="original-price">{price.toFixed(2)} сом</p>
-                        <p className="discounted-price">{discountedPrice} сом</p>
+                        <p className="discounted-price">
+                          {discountedPrice} сом
+                        </p>
                       </>
                     ) : (
                       <p>{price.toFixed(2)} сом</p>
@@ -878,7 +982,9 @@ function Products() {
                 Итого:
                 {discount > 0 ? (
                   <>
-                    <span className="original-total-price">{calculateTotal().total} сом</span>
+                    <span className="original-total-price">
+                      {calculateTotal().total} сом
+                    </span>
                     <span className="discounted-total-price">
                       {calculateTotal().discountedTotal} сом
                     </span>
@@ -896,7 +1002,7 @@ function Products() {
                 value={promoCode}
                 onChange={(e) => setPromoCode(e.target.value)}
               />
-                           <button onClick={handlePromoCodeSubmit}>Применить</button>
+              <button onClick={handlePromoCodeSubmit}>Применить</button>
             </div>
             {isOrderSection ? (
               <div className="order-form">
@@ -911,7 +1017,9 @@ function Products() {
                     onChange={handleOrderChange}
                     placeholder="Введите ваше имя"
                   />
-                  {formErrors.name && <p className="error">{formErrors.name}</p>}
+                  {formErrors.name && (
+                    <p className="error">{formErrors.name}</p>
+                  )}
                 </div>
                 <div className="form-group">
                   <label htmlFor="phone">Телефон:</label>
@@ -923,7 +1031,9 @@ function Products() {
                     onChange={handleOrderChange}
                     placeholder="+996123456789"
                   />
-                  {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+                  {formErrors.phone && (
+                    <p className="error">{formErrors.phone}</p>
+                  )}
                 </div>
                 <div className="form-group">
                   <label htmlFor="comments">Комментарии:</label>
@@ -949,7 +1059,9 @@ function Products() {
                     onChange={handleDeliveryChange}
                     placeholder="Введите ваше имя"
                   />
-                  {formErrors.name && <p className="error">{formErrors.name}</p>}
+                  {formErrors.name && (
+                    <p className="error">{formErrors.name}</p>
+                  )}
                 </div>
                 <div className="form-group">
                   <label htmlFor="phone">Телефон:</label>
@@ -961,7 +1073,9 @@ function Products() {
                     onChange={handleDeliveryChange}
                     placeholder="+996123456789"
                   />
-                  {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+                  {formErrors.phone && (
+                    <p className="error">{formErrors.phone}</p>
+                  )}
                 </div>
                 <div className="form-group">
                   <label htmlFor="address">Адрес:</label>
@@ -973,7 +1087,9 @@ function Products() {
                     onChange={handleDeliveryChange}
                     placeholder="Введите адрес доставки"
                   />
-                  {formErrors.address && <p className="error">{formErrors.address}</p>}
+                  {formErrors.address && (
+                    <p className="error">{formErrors.address}</p>
+                  )}
                 </div>
                 <div className="form-group">
                   <label htmlFor="comments">Комментарии:</label>

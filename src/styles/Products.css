@@ -878,4 +878,24 @@
     font-size: 12px;
     padding: 4px 8px;
   }
+}.stories-section {
+  margin: 20px 0;
+}
+
+.stories-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.story-card {
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.story-image {
+  max-width: 150px;
+  border-radius: 8px;
 }
