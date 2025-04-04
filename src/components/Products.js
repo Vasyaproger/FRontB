@@ -1,1246 +1,961 @@
 import React, { useState, useEffect, useRef } from "react";
+import Cart from "./Cart";
+import "../styles/Products.css";
+import halal from "../images/halal_png.png";
+import { useSwipeable } from "react-swipeable";
+import "../styles/OrderPage.css";
+import LazyImage from "./LazyImage";
+import jpgPlaceholder from "../images/cat.jpg";
 import { useNavigate } from "react-router-dom";
-import "../styles/AdminPanel.css";
 
-function AdminPanel() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [users, setUsers] = useState([]);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [image, setImage] = useState(null);
-  const [categoryId, setCategoryId] = useState("");
-  const [subCategoryId, setSubCategoryId] = useState("");
-  const [priceSmall, setPriceSmall] = useState("");
-  const [priceMedium, setPriceMedium] = useState("");
-  const [priceLarge, setPriceLarge] = useState("");
-  const [priceSingle, setPriceSingle] = useState("");
-  const [priceFieldsCount, setPriceFieldsCount] = useState(1);
+function Products() {
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [products, setProducts] = useState([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editingProductId, setEditingProductId] = useState(null);
-  const [promoCodeList, setPromoCodeList] = useState([]);
-  const [stories, setStories] = useState([]);
-  const [newStoryImage, setNewStoryImage] = useState(null);
-  const [newStoryImagePreview, setNewStoryImagePreview] = useState(null);
-  const [isStoryEditMode, setIsStoryEditMode] = useState(false);
-  const [editingStoryId, setEditingStoryId] = useState(null);
-  const [newPromoCode, setNewPromoCode] = useState({
-    code: "",
-    discountPercent: "",
-    expiresAt: "",
-    isActive: true,
+  const [menuItems, setMenuItems] = useState({});
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [pizzaSize, setPizzaSize] = useState(null);
+  const [cartItems, setCartItems] = useState(() => {
+    const savedCart = localStorage.getItem("cartItems");
+    return savedCart ? JSON.parse(savedCart) : [];
   });
-  const [imagePreview, setImagePreview] = useState(null);
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [orders, setOrders] = useState([]); // Добавлено для заказов
-  const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false); // Модальное окно для заказов
-  const [currentBranch, setCurrentBranch] = useState(null);
-  const [currentCategory, setCurrentCategory] = useState(null);
-  const [currentOrder, setCurrentOrder] = useState(null); // Текущий заказ для редактирования
-  const [token, setToken] = useState(localStorage.getItem("token") || "");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
-  const [branchFormData, setBranchFormData] = useState({
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isModalClosing, setIsModalClosing] = useState(false);
+  const [modalPosition, setModalPosition] = useState(0);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("");
+  const [isOrderSection, setIsOrderSection] = useState(false);
+  const [orderDetails, setOrderDetails] = useState({ name: "", phone: "", comments: "" });
+  const [deliveryDetails, setDeliveryDetails] = useState({
     name: "",
-    address: "",
     phone: "",
+    address: "",
+    comments: "",
   });
-  const [categoryFormData, setCategoryFormData] = useState({
-    name: "",
+  const [isOrderSent, setIsOrderSent] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [discount, setDiscount] = useState(0);
+  const [formErrors, setFormErrors] = useState({});
+  const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState(() => {
+    return localStorage.getItem("selectedBranch") || null;
   });
+  const [isBranchModalOpen, setIsBranchModalOpen] = useState(!localStorage.getItem("selectedBranch"));
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [orderHistory, setOrderHistory] = useState([]);
 
-  const formRef = useRef(null);
+  const modalRef = useRef(null);
+  const menuRef = useRef(null);
+  const sectionRefs = useRef({});
   const navigate = useNavigate();
   const baseURL = "https://nukesul-brepb-651f.twc1.net";
 
-  useEffect(() => {
-    const verifyToken = async () => {
-      const storedToken = localStorage.getItem("token");
-      if (!storedToken) {
-        setIsAuthenticated(false);
-        navigate("/admin-login");
+  const categoryEmojis = {
+    Пиццы: "🍕",
+    Половинка_Пиццы: "🍕",
+    Комбо: "🍕🍔🍟",
+    Сет: "🍱",
+    Бургеры: "🍔",
+    Шаурмы: "🌯",
+    Суши: "🍣",
+    Плов: "🍚",
+    Десерты: "🍰",
+    Блинчики: "🥞",
+    Закуски: "🍟",
+    Восточная_кухня: "🥘",
+    Европейская_кухня: "🍝",
+    Стейки_и_горячие_блюда: "🥩🔥",
+    Горячие_блюда: "🍲",
+    Супы: "🥣",
+    Манты: "🥟",
+    Вок: "🍜",
+    Гарниры: "🍟",
+    Закуски_и_гарниры: "🍢",
+    Завтраки: "🥞",
+    Детское_меню: "👶🍴",
+    Шашлыки: "🥩",
+    Салаты: "🥗",
+    Соусы: "🥫",
+    Хлеб: "🥖",
+    Горячие_напитки: "☕",
+    Напитки: "🍹",
+    Лимонады: "🍋",
+    Коктейли: "🍸",
+    Бабл_ти: "🧋",
+    Кофе: "☕",
+  };
+
+  const priority = [
+    "Пиццы",
+    "Половинка_Пиццы",
+    "Комбо",
+    "Сет",
+    "Бургеры",
+    "Шаурмы",
+    "Суши",
+    "Плов",
+    "Десерты",
+    "Блинчики",
+    "Закуски",
+    "Восточная_кухня",
+    "Европейская_кухня",
+    "Стейки_и_горячие_блюда",
+    "Горячие_блюда",
+    "Супы",
+    "Манты",
+    "Вок",
+    "Гарниры",
+    "Закуски_и_гарниры",
+    "Завтраки",
+    "Детское_меню",
+    "Салаты",
+    "Соусы",
+    "Хлеб",
+    "Горячие_напитки",
+    "Напитки",
+    "Лимонады",
+    "Коктейли",
+    "Бабл_ти",
+    "Кофе",
+  ];
+
+  const fetchBranches = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${baseURL}/api/public/branches`);
+      if (!response.ok) {
+        throw new Error(`Ошибка при загрузке филиалов: ${response.status}`);
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error("Неверный формат данных филиалов");
+      }
+      setBranches(data);
+      if (data.length === 0) {
+        setError("Филиалы не найдены");
+        setIsBranchModalOpen(true);
         return;
       }
-      try {
-        const response = await fetch(`${baseURL}/products`, {
-          headers: { Authorization: `Bearer ${storedToken}` },
-        });
-        if (!response.ok) throw new Error("Токен недействителен");
-        setIsAuthenticated(true);
-        setToken(storedToken);
-        await fetchInitialData(storedToken);
-      } catch (err) {
-        console.error("Ошибка проверки токена:", err);
-        setIsAuthenticated(false);
-        localStorage.removeItem("token");
-        setToken("");
-        setError("Токен недействителен. Войдите снова.");
-        navigate("/admin-login");
+      if (selectedBranch && !data.some((branch) => branch.id === parseInt(selectedBranch))) {
+        setSelectedBranch(null);
+        localStorage.removeItem("selectedBranch");
+        setIsBranchModalOpen(true);
       }
-    };
-    verifyToken();
-  }, [navigate]);
-
-  const fetchInitialData = async (authToken) => {
-    try {
-      const headers = { Authorization: `Bearer ${authToken}` };
-      const [
-        branchesRes,
-        categoriesRes,
-        usersRes,
-        promoCodesRes,
-        storiesRes,
-      ] = await Promise.all([
-        fetch(`${baseURL}/branches`, { headers }),
-        fetch(`${baseURL}/categories`, { headers }),
-        fetch(`${baseURL}/users`, { headers }),
-        fetch(`${baseURL}/promo-codes`, { headers }),
-        fetch(`${baseURL}/stories`, { headers }),
-      ]);
-
-      const branchesData = await branchesRes.json();
-      const categoriesData = await categoriesRes.json();
-      const usersData = await usersRes.json();
-      const promoCodesData = await promoCodesRes.json();
-      const storiesData = await storiesRes.json();
-
-      if (!branchesRes.ok) throw new Error("Ошибка загрузки филиалов");
-      if (!categoriesRes.ok) throw new Error("Ошибка загрузки категорий");
-      if (!usersRes.ok) throw new Error("Ошибка загрузки пользователей");
-      if (!promoCodesRes.ok) throw new Error("Ошибка загрузки промокодов");
-      if (!storiesRes.ok) throw new Error("Ошибка загрузки историй");
-
-      setBranches(Array.isArray(branchesData) ? branchesData : []);
-      setSelectedBranch(branchesData[0]?.id || null);
-      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-      setUsers(
-        Array.isArray(usersData)
-          ? usersData.map((u) => ({
-              user_id: u.id,
-              first_name: u.name,
-              email: u.email,
-            }))
-          : []
-      );
-      setPromoCodeList(Array.isArray(promoCodesData) ? promoCodesData : []);
-      setStories(Array.isArray(storiesData) ? storiesData : []);
+      if (!selectedBranch) {
+        setIsBranchModalOpen(true);
+      }
     } catch (error) {
-      console.error("Ошибка загрузки данных:", error);
-      setError(error.message || "Не удалось загрузить данные");
+      console.error("Ошибка при загрузке филиалов:", error);
+      setError("Не удалось загрузить филиалы: " + error.message);
+      setBranches([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const fetchProducts = async () => {
-    if (!selectedBranch || !token) return;
+    if (!selectedBranch) return;
+    setIsLoading(true);
     try {
-      const response = await fetch(`${baseURL}/products`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Ошибка загрузки продуктов");
+      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/products`);
+      if (!response.ok) {
+        throw new Error(`Ошибка при загрузке продуктов: ${response.status}`);
+      }
       const data = await response.json();
-      const branchProducts = data.filter((p) => p.branch_id === selectedBranch);
-      setProducts(Array.isArray(branchProducts) ? branchProducts : []);
+      if (!Array.isArray(data)) {
+        throw new Error("Неверный формат данных продуктов");
+      }
+      setProducts(data);
+      const groupedItems = data.reduce((acc, product) => {
+        acc[product.category] = acc[product.category] || [];
+        acc[product.category].push(product);
+        return acc;
+      }, {});
+
+      const sortedCategories = Object.fromEntries(
+        Object.entries(groupedItems).sort(([catA], [catB]) => {
+          const indexA = priority.indexOf(catA);
+          const indexB = priority.indexOf(catB);
+          return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+        })
+      );
+
+      setMenuItems(sortedCategories);
     } catch (error) {
-      console.error("Ошибка загрузки продуктов:", error);
-      setError("Не удалось загрузить продукты");
+      console.error("Ошибка при загрузке продуктов:", error);
+      setError("Не удалось загрузить продукты: " + error.message);
+      setProducts([]);
+      setMenuItems({});
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const fetchOrders = async () => {
-    if (!selectedBranch || !token) return;
+  const fetchOrderHistory = async () => {
+    if (!selectedBranch) return;
+    setIsLoading(true);
     try {
-      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/orders`, {
-        headers: { Authorization: `Bearer ${token}` }, // Защищаем маршрут для админов
-      });
-      if (!response.ok) throw new Error("Ошибка загрузки заказов");
+      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/orders`);
+      if (!response.ok) {
+        throw new Error(`Ошибка при загрузке истории заказов: ${response.status}`);
+      }
       const data = await response.json();
-      setOrders(Array.isArray(data) ? data : []);
+      if (!Array.isArray(data)) {
+        throw new Error("Неверный формат данных истории заказов");
+      }
+      setOrderHistory(data);
     } catch (error) {
-      console.error("Ошибка загрузки заказов:", error);
-      setError("Не удалось загрузить заказы");
+      console.error("Ошибка при загрузке истории заказов:", error);
+      setError("Не удалось загрузить историю заказов: " + error.message);
+      setOrderHistory([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (selectedBranch && isAuthenticated && token) {
+    fetchBranches();
+  }, []);
+
+  useEffect(() => {
+    if (selectedBranch) {
       fetchProducts();
-      fetchOrders();
+      fetchOrderHistory();
       const interval = setInterval(() => {
         fetchProducts();
-        fetchOrders();
+        fetchOrderHistory();
       }, 30000); // Обновление каждые 30 секунд
       return () => clearInterval(interval);
     }
-  }, [selectedBranch, isAuthenticated, token]);
+  }, [selectedBranch]);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      let currentCategory = "";
+      Object.keys(sectionRefs.current).forEach((category) => {
+        const section = sectionRefs.current[category];
+        if (section) {
+          const rect = section.getBoundingClientRect();
+          if (rect.top <= 150 && rect.bottom >= 150) {
+            currentCategory = category;
+          }
+        }
+      });
+      if (currentCategory && currentCategory !== activeCategory) {
+        setActiveCategory(currentCategory);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [activeCategory]);
+
+  useEffect(() => {
+    if (!menuRef.current || !activeCategory) return;
+    const activeItem = menuRef.current.querySelector(`a[href="#${activeCategory}"]`);
+    if (activeItem) {
+      activeItem.scrollIntoView({
+        behavior: "smooth",
+        inline: "center",
+        block: "nearest",
+      });
+    }
+  }, [activeCategory]);
+
+  useEffect(() => {
+    if (isProductModalOpen) {
+      setIsModalClosing(false);
+    }
+  }, [isProductModalOpen]);
+
+  const handleCartOpen = () => setIsCartOpen(true);
+  const handleCartClose = () => setIsCartOpen(false);
+
+  const handleProductClick = (product, category) => {
+    setSelectedProduct({ product, category });
+    if (category !== "Пиццы") setPizzaSize(null);
+    setIsProductModalOpen(true);
+  };
+
+  const isPizza = (product) => {
+    return product && product.price_small && product.price_medium && product.price_large;
+  };
+
+  const handleAddToCart = () => {
     try {
-      const response = await fetch(`${baseURL}/admin/login`, {
+      if (!selectedProduct?.product) return;
+
+      if (isPizza(selectedProduct.product) && !pizzaSize) {
+        throw new Error("Выберите размер пиццы перед добавлением в корзину.");
+      }
+
+      const itemToAdd = {
+        id: isPizza(selectedProduct.product)
+          ? `${selectedProduct.product.id}-${pizzaSize}`
+          : selectedProduct.product.id,
+        name: isPizza(selectedProduct.product)
+          ? `${selectedProduct.product.name} (${pizzaSize})`
+          : selectedProduct.product.name,
+        price:
+          isPizza(selectedProduct.product) && pizzaSize
+            ? selectedProduct.product[`price_${pizzaSize.toLowerCase()}`]
+            : selectedProduct.product.price_single || selectedProduct.product.price || 0,
+        quantity: 1,
+        image: selectedProduct.product.image, // Используем поле image напрямую
+      };
+
+      const existingItemIndex = cartItems.findIndex((item) => item.id === itemToAdd.id);
+
+      if (existingItemIndex > -1) {
+        const updatedCartItems = cartItems.map((item, index) =>
+          index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
+        );
+        setCartItems(updatedCartItems);
+      } else {
+        setCartItems([...cartItems, itemToAdd]);
+      }
+
+      closeProductModal();
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  };
+
+  const handleQuantityChange = (itemId, change) => {
+    setCartItems((prevItems) =>
+      prevItems
+        .map((item) =>
+          item.id === itemId
+            ? { ...item, quantity: Math.max(0, item.quantity + change) }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
+  const handleOrderChange = (e) => {
+    const { name, value } = e.target;
+    setOrderDetails((prev) => ({ ...prev, [name]: value }));
+    setFormErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handleDeliveryChange = (e) => {
+    const { name, value } = e.target;
+    setDeliveryDetails((prev) => ({ ...prev, [name]: value }));
+    setFormErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handlePromoCodeSubmit = async () => {
+    try {
+      const response = await fetch(`${baseURL}/api/public/validate-promo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: username, password }),
+        body: JSON.stringify({ promoCode }),
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Ошибка входа");
+        throw new Error(errorData.message || "Неверный промокод");
       }
       const data = await response.json();
-      setToken(data.token);
-      localStorage.setItem("token", data.token);
-      setIsAuthenticated(true);
-      setError(null);
-      await fetchInitialData(data.token);
-      setUsername("");
-      setPassword("");
+      setDiscount(data.discount);
+      alert(`Промокод применен! Скидка ${data.discount}% добавлена.`);
     } catch (error) {
-      console.error("Ошибка входа:", error);
-      setError(error.message);
+      console.error("Ошибка проверки промокода:", error);
+      alert(error.message || "Ошибка проверки промокода.");
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setToken("");
-    setIsAuthenticated(false);
-    navigate("/admin-login");
+  const validatePhone = (phone) => {
+    const phoneRegex = /^\+?\d{10,12}$/;
+    return phoneRegex.test(phone);
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    setImage(file);
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result);
-      reader.readAsDataURL(file);
+  const validateFields = () => {
+    const errors = {};
+    if (isOrderSection) {
+      if (!orderDetails.name) errors.name = "Пожалуйста, заполните имя";
+      if (!orderDetails.phone) errors.phone = "Пожалуйста, заполните телефон";
+      else if (!validatePhone(orderDetails.phone))
+        errors.phone = "Неверный формат телефона (например, +996123456789)";
     } else {
-      setImagePreview(null);
+      if (!deliveryDetails.name) errors.name = "Пожалуйста, заполните имя";
+      if (!deliveryDetails.phone) errors.phone = "Пожалуйста, заполните телефон";
+      else if (!validatePhone(deliveryDetails.phone))
+        errors.phone = "Неверный формат телефона (например, +996123456789)";
+      if (!deliveryDetails.address) errors.address = "Пожалуйста, заполните адрес";
     }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  const handleStoryImageChange = (e) => {
-    const file = e.target.files[0];
-    setNewStoryImage(file);
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setNewStoryImagePreview(reader.result);
-      reader.readAsDataURL(file);
-    } else {
-      setNewStoryImagePreview(null);
-    }
-  };
-
-  const resetStoryForm = () => {
-    setNewStoryImage(null);
-    setNewStoryImagePreview(null);
-    setIsStoryEditMode(false);
-    setEditingStoryId(null);
-  };
-
-  const handleStorySubmit = async (e) => {
-    e.preventDefault();
-    if (!newStoryImage && !isStoryEditMode) {
-      alert("Пожалуйста, выберите изображение!");
+  const sendOrderToServer = async () => {
+    if (cartItems.length === 0) {
+      alert("Ваша корзина пуста. Добавьте товары перед оформлением заказа.");
       return;
     }
-    const formData = new FormData();
-    if (newStoryImage) formData.append("image", newStoryImage);
-
+    if (!validateFields()) return;
     try {
-      const url = isStoryEditMode ? `${baseURL}/stories/${editingStoryId}` : `${baseURL}/stories`;
-      const method = isStoryEditMode ? "PUT" : "POST";
-      const response = await fetch(url, {
-        method,
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
+      const cartItemsWithPrices = cartItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        originalPrice: item.price || 0,
+        discountedPrice: calculateDiscountedPrice(item.price || 0),
+      }));
+
+      const response = await fetch(`${baseURL}/api/public/send-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderDetails,
+          deliveryDetails,
+          cartItems: cartItemsWithPrices,
+          discount,
+          promoCode,
+          branchId: selectedBranch,
+        }),
       });
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Ошибка при сохранении истории");
+        throw new Error(errorData.message || "Ошибка при отправке заказа");
       }
-      const updatedStory = await response.json();
-      if (isStoryEditMode) {
-        setStories(stories.map((story) => (story.id === editingStoryId ? updatedStory : story)));
-        alert("История обновлена!");
+
+      setIsOrderSent(true);
+      setCartItems([]);
+      localStorage.removeItem("cartItems");
+      setTimeout(() => setIsOrderSent(false), 4000);
+      fetchOrderHistory();
+    } catch (error) {
+      console.error("Ошибка при отправке заказа:", error);
+      alert(error.message || "Ошибка при отправке заказа.");
+    }
+  };
+
+  const calculateDiscountedPrice = (price) => {
+    const validPrice = price || 0;
+    return validPrice * (1 - discount / 100);
+  };
+
+  const calculateTotal = () => {
+    const total = cartItems.reduce((sum, item) => {
+      const price = item.price || 0;
+      return sum + price * item.quantity;
+    }, 0);
+    const discountedTotal = total * (1 - discount / 100);
+    return {
+      total: total.toFixed(2),
+      discountedTotal: discountedTotal.toFixed(2),
+    };
+  };
+
+  const closeProductModal = () => {
+    setIsModalClosing(true);
+    setModalPosition(0);
+    setTimeout(() => {
+      setIsProductModalOpen(false);
+      setSelectedProduct(null);
+      setPizzaSize(null);
+      setErrorMessage("");
+      setIsModalClosing(false);
+    }, 400);
+  };
+
+  const handleOutsideClick = (e) => {
+    if (e.target.className.includes("modal") && !isModalClosing) {
+      closeProductModal();
+    }
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwiping: (eventData) => {
+      const { deltaY } = eventData;
+      if (deltaY > 0 && modalRef.current) {
+        setModalPosition(deltaY);
+      }
+    },
+    onSwipedDown: (eventData) => {
+      if (eventData.deltaY > 100) {
+        closeProductModal();
       } else {
-        setStories([...stories, updatedStory]);
-        alert("История добавлена!");
+        setModalPosition(0);
       }
-      resetStoryForm();
-    } catch (error) {
-      console.error("Ошибка при сохранении истории:", error);
-      alert(error.message || "Произошла ошибка при сохранении истории");
-    }
+    },
+    preventScrollOnSwipe: true,
+  });
+
+  const handleBranchSelect = (branchId) => {
+    setSelectedBranch(branchId);
+    localStorage.setItem("selectedBranch", branchId);
+    setIsBranchModalOpen(false);
+    setProducts([]);
+    setMenuItems({});
+    setOrderHistory([]);
   };
 
-  const handleEditStory = (story) => {
-    setIsStoryEditMode(true);
-    setEditingStoryId(story.id);
-    setNewStoryImage(null);
-    setNewStoryImagePreview(story.image);
-  };
-
-  const handleDeleteStory = async (storyId) => {
-    if (!window.confirm("Вы уверены, что хотите удалить эту историю?")) return;
-    try {
-      const response = await fetch(`${baseURL}/stories/${storyId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Ошибка удаления истории");
-      setStories(stories.filter((s) => s.id !== storyId));
-      alert("История удалена!");
-    } catch (error) {
-      console.error("Ошибка при удалении истории:", error);
-      alert("Произошла ошибка при удалении истории");
-    }
-  };
-
-  const handleCategoryChange = (e) => {
-    setCategoryId(e.target.value);
-    setSubCategoryId("");
-    resetPriceFields();
-    setPriceFieldsCount(1);
-  };
-
-  const resetFormFields = () => {
-    setName("");
-    setDescription("");
-    setImage(null);
-    setImagePreview(null);
-    setCategoryId("");
-    setSubCategoryId("");
-    resetPriceFields();
-    setPriceFieldsCount(1);
-  };
-
-  const resetPriceFields = () => {
-    setPriceSmall("");
-    setPriceMedium("");
-    setPriceLarge("");
-    setPriceSingle("");
-  };
-
-  const openBranchModal = (branch = null) => {
-    setCurrentBranch(branch);
-    if (branch) {
-      setBranchFormData({ name: branch.name, address: branch.address || "", phone: branch.phone || "" });
-    } else {
-      setBranchFormData({ name: "", address: "", phone: "" });
-    }
+  const handleChangeBranch = () => {
     setIsBranchModalOpen(true);
   };
 
-  const closeBranchModal = () => {
-    setIsBranchModalOpen(false);
-    setCurrentBranch(null);
-  };
-
-  const handleBranchInputChange = (e) => {
-    const { name, value } = e.target;
-    setBranchFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const saveBranch = async () => {
-    try {
-      const method = currentBranch ? "PUT" : "POST";
-      const url = currentBranch ? `${baseURL}/branches/${currentBranch.id}` : `${baseURL}/branches`;
-      const response = await fetch(url, {
-        method,
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(branchFormData),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Ошибка сохранения филиала");
-      }
-      const data = await response.json();
-      if (currentBranch) {
-        setBranches(branches.map((b) => (b.id === data.id ? data : b)));
-      } else {
-        setBranches([...branches, data]);
-        if (!selectedBranch) setSelectedBranch(data.id);
-      }
-      closeBranchModal();
-      alert("Филиал успешно сохранён!");
-    } catch (error) {
-      console.error("Ошибка:", error);
-      alert(error.message || "Ошибка при сохранении филиала");
-    }
-  };
-
-  const deleteBranch = async (id) => {
-    if (!window.confirm("Вы уверены, что хотите удалить этот филиал?")) return;
-    try {
-      const response = await fetch(`${baseURL}/branches/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Ошибка удаления филиала");
-      setBranches(branches.filter((b) => b.id !== id));
-      if (selectedBranch === id) setSelectedBranch(branches[0]?.id || null);
-      alert("Филиал успешно удалён!");
-    } catch (error) {
-      console.error("Ошибка:", error);
-      alert("Ошибка при удалении филиала");
-    }
-  };
-
-  const openCategoryModal = (category = null) => {
-    setCurrentCategory(category);
-    if (category) {
-      setCategoryFormData({ name: category.name });
-    } else {
-      setCategoryFormData({ name: "" });
-    }
-    setIsCategoryModalOpen(true);
-  };
-
-  const closeCategoryModal = () => {
-    setIsCategoryModalOpen(false);
-    setCurrentCategory(null);
-  };
-
-  const handleCategoryInputChange = (e) => {
-    const { name, value } = e.target;
-    setCategoryFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const saveCategory = async () => {
-    try {
-      const method = currentCategory ? "PUT" : "POST";
-      const url = currentCategory ? `${baseURL}/categories/${currentCategory.id}` : `${baseURL}/categories`;
-      const response = await fetch(url, {
-        method,
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(categoryFormData),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Ошибка сохранения категории");
-      }
-      const data = await response.json();
-      if (currentCategory) {
-        setCategories(categories.map((c) => (c.id === data.id ? data : c)));
-      } else {
-        setCategories([...categories, data]);
-      }
-      closeCategoryModal();
-      alert("Категория успешно сохранена!");
-    } catch (error) {
-      console.error("Ошибка:", error);
-      alert(error.message || "Ошибка при сохранении категории");
-    }
-  };
-
-  const deleteCategory = async (id) => {
-    if (!window.confirm("Вы уверены, что хотите удалить эту категорию?")) return;
-    try {
-      const response = await fetch(`${baseURL}/categories/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Ошибка удаления категории");
-      setCategories(categories.filter((c) => c.id !== id));
-      alert("Категория успешно удалена!");
-    } catch (error) {
-      console.error("Ошибка:", error);
-      alert("Ошибка при удалении категории");
-    }
-  };
-
-  const openOrderModal = (order = null) => {
-    setCurrentOrder(order);
-    setIsOrderModalOpen(true);
-  };
-
-  const closeOrderModal = () => {
-    setIsOrderModalOpen(false);
-    setCurrentOrder(null);
-  };
-
-  const updateOrderStatus = async (orderId, status) => {
-    try {
-      const response = await fetch(`${baseURL}/orders/${orderId}`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (!response.ok) throw new Error("Ошибка обновления статуса заказа");
-      setOrders(orders.map((o) => (o.id === orderId ? { ...o, status } : o)));
-      alert("Статус заказа обновлен!");
-      closeOrderModal();
-    } catch (error) {
-      console.error("Ошибка:", error);
-      alert(error.message || "Ошибка при обновлении статуса заказа");
-    }
-  };
-
-  const handleAddPromoCode = async () => {
-    if (!newPromoCode.code || !newPromoCode.discountPercent) {
-      alert("Введите код и процент скидки!");
-      return;
-    }
-    try {
-      const response = await fetch(`${baseURL}/promo-codes`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(newPromoCode),
-      });
-      if (!response.ok) throw new Error("Ошибка добавления промокода");
-      const data = await response.json();
-      setPromoCodeList([...promoCodeList, data]);
-      setNewPromoCode({ code: "", discountPercent: "", expiresAt: "", isActive: true });
-      alert("Промокод добавлен!");
-    } catch (error) {
-      console.error("Ошибка:", error);
-      alert("Ошибка при добавлении промокода");
-    }
-  };
-
-  const handleEditPromoCode = (promo) => {
-    setNewPromoCode({
-      code: promo.code,
-      discountPercent: promo.discount_percent,
-      expiresAt: promo.expires_at ? promo.expires_at.slice(0, 16) : "",
-      isActive: promo.is_active,
-    });
-    handleDeletePromoCode(promo.id);
-  };
-
-  const handleDeletePromoCode = async (id) => {
-    if (!window.confirm("Вы уверены, что хотите удалить этот промокод?")) return;
-    try {
-      const response = await fetch(`${baseURL}/promo-codes/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Ошибка удаления промокода");
-      setPromoCodeList(promoCodeList.filter((p) => p.id !== id));
-      alert("Промокод удалён!");
-    } catch (error) {
-      console.error("Ошибка:", error);
-      alert("Ошибка при удалении промокода");
-    }
-  };
-
-  const handleDelete = async (productId) => {
-    if (!window.confirm("Вы уверены, что хотите удалить этот продукт?")) return;
-    try {
-      const response = await fetch(`${baseURL}/products/${productId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Ошибка удаления продукта");
-      setProducts((prev) => prev.filter((p) => p.id !== productId));
-      alert("Продукт успешно удалён!");
-    } catch (error) {
-      console.error("Ошибка при удалении:", error);
-      alert("Произошла ошибка при удалении продукта");
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    if (!selectedBranch) {
-      alert("Пожалуйста, выберите филиал!");
-      setIsSubmitting(false);
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("description", description);
-    formData.append("branchId", selectedBranch);
-    formData.append("categoryId", categoryId);
-    formData.append("subCategoryId", subCategoryId || "");
-    formData.append("priceSmall", priceSmall || "");
-    formData.append("priceMedium", priceMedium || "");
-    formData.append("priceLarge", priceLarge || "");
-    formData.append("priceSingle", priceSingle || "");
-    if (image) formData.append("image", image);
-
-    if (!name || !categoryId || (!image && !editMode)) {
-      alert("Заполните все обязательные поля (название, категория, изображение)!");
-      setIsSubmitting(false);
-      return;
-    }
-
-    try {
-      const url = editMode ? `${baseURL}/products/${editingProductId}` : `${baseURL}/products`;
-      const method = editMode ? "PUT" : "POST";
-      const response = await fetch(url, {
-        method,
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Ошибка при сохранении продукта");
-      }
-      const newProduct = await response.json();
-      if (editMode) {
-        setProducts((prev) => prev.map((p) => (p.id === editingProductId ? newProduct : p)));
-        alert("Продукт обновлён!");
-      } else {
-        setProducts((prev) => [...prev, newProduct]);
-        alert("Продукт добавлен!");
-      }
-      resetFormFields();
-      setEditMode(false);
-      setEditingProductId(null);
-    } catch (error) {
-      console.error("Ошибка запроса:", error);
-      alert(error.message || "Произошла ошибка при сохранении продукта");
-    }
-    setIsSubmitting(false);
-  };
-
-  const handleEdit = (product) => {
-    setEditMode(true);
-    setEditingProductId(product.id);
-    setName(product.name);
-    setDescription(product.description || "");
-    setCategoryId(product.category_id);
-    setSubCategoryId(product.sub_category_id || "");
-    setPriceSmall(product.price_small || "");
-    setPriceMedium(product.price_medium || "");
-    setPriceLarge(product.price_large || "");
-    setPriceSingle(product.price_single || "");
-    setImage(null);
-    setImagePreview(product.image);
-    let count = 0;
-    if (product.price_small) count++;
-    if (product.price_medium) count++;
-    if (product.price_large) count++;
-    setPriceFieldsCount(count || 1);
-    if (formRef.current) formRef.current.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const renderUsersSection = () => {
-    const filteredUsers = users.filter((user) =>
-      user.first_name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    return (
-      <div className="users-section">
-        <h2>Пользователи <span className="user-count">({filteredUsers.length})</span></h2>
-        <input
-          type="text"
-          placeholder="Поиск по имени..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="search-input"
-        />
-        <div className="user-cards">
-          {filteredUsers.length > 0 ? (
-            filteredUsers.slice(0, 10).map((user) => (
-              <div key={user.user_id} className="user-card">
-                <h3>{user.first_name}</h3>
-                <p>Email: {user.email}</p>
-                <button onClick={() => handleDeleteUser(user.user_id)} className="delete-btn">
-                  Удалить
-                </button>
-              </div>
-            ))
-          ) : (
-            <p>Пользователи не найдены</p>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const handleDeleteUser = async (userId) => {
-    if (!window.confirm("Вы уверены, что хотите удалить пользователя?")) return;
-    try {
-      const response = await fetch(`${baseURL}/users/${userId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Ошибка удаления пользователя");
-      setUsers((prev) => prev.filter((u) => u.user_id !== userId));
-      alert("Пользователь удалён!");
-    } catch (error) {
-      console.error("Ошибка удаления:", error);
-      alert("Произошла ошибка");
-    }
-  };
-
-  const renderPriceFields = () => {
-    if (!categoryId) return null;
-    return (
-      <>
-        <div>
-          <label>Количество размеров:</label>
-          <select
-            value={priceFieldsCount}
-            onChange={(e) => {
-              const count = parseInt(e.target.value);
-              setPriceFieldsCount(count);
-              if (count < 3) setPriceLarge("");
-              if (count < 2) setPriceMedium("");
-              if (count === 1) setPriceSingle(priceSmall || "");
-            }}
-          >
-            <option value={1}>1 размер</option>
-            <option value={2}>2 размера</option>
-            <option value={3}>3 размера</option>
-          </select>
-        </div>
-        {priceFieldsCount === 1 && (
-          <div>
-            <label>Цена (сом):</label>
-            <input
-              type="number"
-              value={priceSingle}
-              onChange={(e) => setPriceSingle(e.target.value)}
-              min="0"
-              placeholder="Введите цену"
-            />
-          </div>
-        )}
-        {priceFieldsCount >= 1 && priceFieldsCount > 1 && (
-          <div>
-            <label>Маленькая (сом):</label>
-            <input
-              type="number"
-              value={priceSmall}
-              onChange={(e) => setPriceSmall(e.target.value)}
-              min="0"
-              placeholder="Введите цену"
-            />
-          </div>
-        )}
-        {priceFieldsCount >= 2 && (
-          <div>
-            <label>Средняя (сом):</label>
-            <input
-              type="number"
-              value={priceMedium}
-              onChange={(e) => setPriceMedium(e.target.value)}
-              min="0"
-              placeholder="Введите цену"
-            />
-          </div>
-        )}
-        {priceFieldsCount >= 3 && (
-          <div>
-            <label>Большая (сом):</label>
-            <input
-              type="number"
-              value={priceLarge}
-              onChange={(e) => setPriceLarge(e.target.value)}
-              min="0"
-              placeholder="Введите цену"
-            />
-          </div>
-        )}
-      </>
-    );
-  };
-
-  const renderBranchesSection = () => {
-    return (
-      <div className="branches-section">
-        <h2>Филиалы</h2>
-        <button className="add-button" onClick={() => openBranchModal()}>
-          Добавить филиал
-        </button>
-        <select
-          value={selectedBranch || ""}
-          onChange={(e) => setSelectedBranch(Number(e.target.value))}
-        >
-          <option value="">Выберите филиал</option>
-          {branches.map((branch) => (
-            <option key={branch.id} value={branch.id}>
-              {branch.name}
-            </option>
-          ))}
-        </select>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Название</th>
-              <th>Адрес</th>
-              <th>Телефон</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {branches.map((branch) => (
-              <tr key={branch.id}>
-                <td>{branch.name}</td>
-                <td>{branch.address || "Нет"}</td>
-                <td>{branch.phone || "Нет"}</td>
-                <td>
-                  <button className="edit-button" onClick={() => openBranchModal(branch)}>
-                    Редактировать
-                  </button>
-                  <button className="delete-button" onClick={() => deleteBranch(branch.id)}>
-                    Удалить
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {isBranchModalOpen && (
-          <div className="modal">
-            <div className="modal-content">
-              <h3>{currentBranch ? "Редактировать филиал" : "Добавить филиал"}</h3>
-              <div className="form-group">
-                <label>Название:</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={branchFormData.name}
-                  onChange={handleBranchInputChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Адрес:</label>
-                <input
-                  type="text"
-                  name="address"
-                  value={branchFormData.address}
-                  onChange={handleBranchInputChange}
-                />
-              </div>
-              <div className="form-group">
-                <label>Телефон:</label>
-                <input
-                  type="text"
-                  name="phone"
-                  value={branchFormData.phone}
-                  onChange={handleBranchInputChange}
-                />
-              </div>
-              <div className="modal-buttons">
-                <button className="save-button" onClick={saveBranch}>
-                  Сохранить
-                </button>
-                <button className="cancel-button" onClick={closeBranchModal}>
-                  Отмена
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderOrdersSection = () => {
-    return (
-      <div className="orders-section">
-        <h2>Заказы</h2>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Филиал</th>
-              <th>Сумма</th>
-              <th>Статус</th>
-              <th>Дата</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((order) => (
-              <tr key={order.id}>
-                <td>{order.id}</td>
-                <td>{branches.find(b => b.id === order.branch_id)?.name || "Неизвестный"}</td>
-                <td>{order.total} Сом</td>
-                <td>{order.status === "pending" ? "Ожидает" :
-                      order.status === "processing" ? "В обработке" :
-                      order.status === "completed" ? "Завершен" : "Отменен"}</td>
-                <td>{new Date(order.created_at).toLocaleString()}</td>
-                <td>
-                  <button className="edit-button" onClick={() => openOrderModal(order)}>
-                    Просмотр/Статус
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {isOrderModalOpen && currentOrder && (
-          <div className="modal">
-            <div className="modal-content">
-              <h3>Заказ #{currentOrder.id}</h3>
-              <p><strong>Филиал:</strong> {branches.find(b => b.id === currentOrder.branch_id)?.name}</p>
-              <p><strong>Сумма:</strong> {currentOrder.total} Сом</p>
-              <p><strong>Статус:</strong> {currentOrder.status === "pending" ? "Ожидает" :
-                                          currentOrder.status === "processing" ? "В обработке" :
-                                          currentOrder.status === "completed" ? "Завершен" : "Отменен"}</p>
-              <p><strong>Дата:</strong> {new Date(currentOrder.created_at).toLocaleString()}</p>
-              <p><strong>Промокод:</strong> {currentOrder.promo_code || "Нет"}</p>
-              <p><strong>Скидка:</strong> {currentOrder.discount}%</p>
-              <h4>Детали заказа:</h4>
-              <pre>{JSON.stringify(JSON.parse(currentOrder.order_details || "{}"), null, 2)}</pre>
-              <h4>Детали доставки:</h4>
-              <pre>{JSON.stringify(JSON.parse(currentOrder.delivery_details || "{}"), null, 2)}</pre>
-              <h4>Товары:</h4>
-              <ul>
-                {JSON.parse(currentOrder.cart_items || "[]").map((item, index) => (
-                  <li key={index}>{item.name} - {item.quantity} шт. ({item.discountedPrice} Сом)</li>
-                ))}
-              </ul>
-              <div className="form-group">
-                <label>Изменить статус:</label>
-                <select
-                  value={currentOrder.status}
-                  onChange={(e) => updateOrderStatus(currentOrder.id, e.target.value)}
-                >
-                  <option value="pending">Ожидает</option>
-                  <option value="processing">В обработке</option>
-                  <option value="completed">Завершен</option>
-                  <option value="cancelled">Отменен</option>
-                </select>
-              </div>
-              <div className="modal-buttons">
-                <button className="cancel-button" onClick={closeOrderModal}>
-                  Закрыть
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderCategoriesSection = () => {
-    return (
-      <div className="categories-section">
-        <h2>Категории</h2>
-        <button className="add-button" onClick={() => openCategoryModal()}>
-          Добавить категорию
-        </button>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Название</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((cat) => (
-              <tr key={cat.id}>
-                <td>{cat.name}</td>
-                <td>
-                  <button className="edit-button" onClick={() => openCategoryModal(cat)}>
-                    Редактировать
-                  </button>
-                  <button className="delete-button" onClick={() => deleteCategory(cat.id)}>
-                    Удалить
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {isCategoryModalOpen && (
-          <div className="modal">
-            <div className="modal-content">
-              <h3>{currentCategory ? "Редактировать категорию" : "Добавить категорию"}</h3>
-              <div className="form-group">
-                <label>Название:</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={categoryFormData.name}
-                  onChange={handleCategoryInputChange}
-                  required
-                />
-              </div>
-              <div className="modal-buttons">
-                <button className="save-button" onClick={saveCategory}>
-                  Сохранить
-                </button>
-                <button className="cancel-button" onClick={closeCategoryModal}>
-                  Отмена
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderPromoCodesSection = () => {
-    return (
-      <div className="promo-codes-section">
-        <h2>Промокоды</h2>
-        <div className="promo-form">
-          <input
-            type="text"
-            placeholder="Код"
-            value={newPromoCode.code}
-            onChange={(e) => setNewPromoCode({ ...newPromoCode, code: e.target.value })}
-          />
-          <input
-            type="number"
-            placeholder="Процент скидки"
-            value={newPromoCode.discountPercent}
-            onChange={(e) => setNewPromoCode({ ...newPromoCode, discountPercent: e.target.value })}
-          />
-          <input
-            type="datetime-local"
-            value={newPromoCode.expiresAt}
-            onChange={(e) => setNewPromoCode({ ...newPromoCode, expiresAt: e.target.value })}
-          />
-          <label>
-            Активен:
-            <input
-              type="checkbox"
-              checked={newPromoCode.isActive}
-              onChange={(e) => setNewPromoCode({ ...newPromoCode, isActive: e.target.checked })}
-            />
-          </label>
-          <button onClick={handleAddPromoCode}>Добавить</button>
-        </div>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Код</th>
-              <th>Скидка (%)</th>
-              <th>Истекает</th>
-              <th>Активен</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {promoCodeList.map((promo) => (
-              <tr key={promo.id}>
-                <td>{promo.code}</td>
-                <td>{promo.discount_percent}</td>
-                <td>{promo.expires_at ? new Date(promo.expires_at).toLocaleString() : "Не истекает"}</td>
-                <td>{promo.is_active ? "Да" : "Нет"}</td>
-                <td>
-                  <button className="edit-button" onClick={() => handleEditPromoCode(promo)}>
-                    Редактировать
-                  </button>
-                  <button className="delete-button" onClick={() => handleDeletePromoCode(promo.id)}>
-                    Удалить
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  const renderStoriesSection = () => {
-    return (
-      <div className="stories-section">
-        <h2>Истории</h2>
-        <form onSubmit={handleStorySubmit} className="story-form">
-          <div className="form-group">
-            <label>Изображение:</label>
-            <input type="file" accept="image/*" onChange={handleStoryImageChange} />
-            {newStoryImagePreview && (
-              <img src={newStoryImagePreview} alt="Preview" className="image-preview" />
-            )}
-          </div>
-          <button type="submit" disabled={isSubmitting}>
-            {isStoryEditMode ? "Обновить" : "Добавить"}
-          </button>
-          {isStoryEditMode && (
-            <button type="button" onClick={resetStoryForm}>
-              Отмена
-            </button>
-          )}
-        </form>
-        <div className="stories-list">
-          {stories.map((story) => (
-            <div key={story.id} className="story-item">
-              <img src={story.image} alt="Story" className="story-image" />
-              <div>
-                <button className="edit-button" onClick={() => handleEditStory(story)}>
-                  Редактировать
-                </button>
-                <button className="delete-button" onClick={() => handleDeleteStory(story.id)}>
-                  Удалить
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderProductsSection = () => {
-    return (
-      <div className="products-section">
-        <h2>Продукты</h2>
-        <form ref={formRef} onSubmit={handleSubmit} className="product-form">
-          <div className="form-group">
-            <label>Название:</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Описание:</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label>Изображение:</label>
-            <input type="file" accept="image/*" onChange={handleImageChange} />
-            {imagePreview && (
-              <img src={imagePreview} alt="Preview" className="image-preview" />
-            )}
-          </div>
-          <div className="form-group">
-            <label>Категория:</label>
-            <select value={categoryId} onChange={handleCategoryChange} required>
-              <option value="">Выберите категорию</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Подкатегория (опционально):</label>
-            <select value={subCategoryId} onChange={(e) => setSubCategoryId(e.target.value)}>
-              <option value="">Нет подкатегории</option>
-              {categories
-                .filter((cat) => cat.parent_id === parseInt(categoryId))
-                .map((subCat) => (
-                  <option key={subCat.id} value={subCat.id}>
-                    {subCat.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-          {renderPriceFields()}
-          <button type="submit" disabled={isSubmitting}>
-            {editMode ? "Обновить" : "Добавить"}
-          </button>
-          {editMode && (
-            <button type="button" onClick={() => { setEditMode(false); resetFormFields(); }}>
-              Отмена
-            </button>
-          )}
-        </form>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Изображение</th>
-              <th>Название</th>
-              <th>Категория</th>
-              <th>Цены</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((product) => (
-              <tr key={product.id}>
-                <td>
-                  <img src={product.image} alt={product.name} className="product-image" />
-                </td>
-                <td>{product.name}</td>
-                <td>{categories.find((c) => c.id === product.category_id)?.name || "Нет"}</td>
-                <td>
-                  {product.price_small ? `Мал: ${product.price_small} ` : ""}
-                  {product.price_medium ? `Сред: ${product.price_medium} ` : ""}
-                  {product.price_large ? `Бол: ${product.price_large} ` : ""}
-                  {product.price_single ? `${product.price_single} сом` : ""}
-                </td>
-                <td>
-                  <button className="edit-button" onClick={() => handleEdit(product)}>
-                    Редактировать
-                  </button>
-                  <button className="delete-button" onClick={() => handleDelete(product.id)}>
-                    Удалить
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="login-container">
-        <h2>Вход для администратора</h2>
-        <form onSubmit={handleLogin} className="login-form">
-          <div className="form-group">
-            <label>Email:</label>
-            <input
-              type="email"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Пароль:</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          {error && <p className="error">{error}</p>}
-          <button type="submit">Войти</button>
-        </form>
-      </div>
-    );
-  }
-
   return (
-    <div className="admin-panel">
-      <header className="admin-header">
-        <h1>Панель администратора</h1>
-        <button onClick={handleLogout} className="logout-button">
-          Выйти
-        </button>
-      </header>
+    <div className="menu-wrapper">
+      {isLoading && (
+        <div className="loading-overlay">
+          <div className="spinner">Загрузка...</div>
+        </div>
+      )}
       {error && <div className="error-message">{error}</div>}
-      {renderBranchesSection()}
-      {selectedBranch && (
+
+      {isBranchModalOpen && (
+        <div
+          className="modal-overlay"
+          onClick={() => branches.length > 0 && setIsBranchModalOpen(false)}
+        >
+          <div className="branch-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Выберите филиал</h2>
+            <div className="branch-list">
+              {branches.length > 0 ? (
+                branches.map((branch) => (
+                  <div
+                    key={branch.id}
+                    className={`branch-item ${selectedBranch === branch.id ? "selected" : ""}`}
+                    onClick={() => handleBranchSelect(branch.id)}
+                  >
+                    <div className="branch-name">{branch.name}</div>
+                    <div className="branch-address">{branch.address}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="no-branches">
+                  <p>Филиалы не найдены</p>
+                  <button onClick={fetchBranches} className="refresh-button">
+                    Обновить
+                  </button>
+                </div>
+              )}
+            </div>
+            {branches.length > 0 && (
+              <button className="close-modal-button" onClick={() => setIsBranchModalOpen(false)}>
+                Закрыть
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="branch-info">
+        <div className="branch-status">
+          {selectedBranch && branches.length > 0 ? (
+            <>
+              <span>
+                Филиал: {branches.find((b) => b.id === parseInt(selectedBranch))?.name || "Неизвестный филиал"}
+              </span>
+              <button onClick={handleChangeBranch} className="change-branch-btn">
+                Сменить
+              </button>
+            </>
+          ) : (
+            <span>Выберите филиал для продолжения</span>
+          )}
+        </div>
+      </div>
+
+      {selectedBranch && products.length > 0 && (
         <>
-          {renderCategoriesSection()}
-          {renderProductsSection()}
-          {renderOrdersSection()}
-          {renderPromoCodesSection()}
-          {renderStoriesSection()}
-          {renderUsersSection()}
+          <h2 className="Mark_Shop">Часто продаваемые товары</h2>
+          <div className="best-sellers">
+            {products
+              .filter((product) => product.category === "Часто продаваемые товары")
+              .map((product) => (
+                <div
+                  className="best-seller-product"
+                  key={product.id}
+                  onClick={() => handleProductClick(product, "Часто продаваемые товары")}
+                >
+                  <LazyImage
+                    className="best-seller-product-image"
+                    src={product.image} // Используем поле image напрямую
+                    alt={product.name}
+                    placeholder={jpgPlaceholder}
+                    onError={() => console.error(`Ошибка загрузки изображения: ${product.image}`)}
+                  />
+                  <div className="best-seller-product-info">
+                    <h3 className="best-seller-product-title">{product.name}</h3>
+                    <div className="best-seller-product-price">
+                      {isPizza(product) ? (
+                        <p className="best-sellers_price_p">
+                          {product.price_small} - {product.price_large} Сом
+                        </p>
+                      ) : product.price_single ? (
+                        <p className="best-sellers_price_p">Цена: {product.price_single} Сом</p>
+                      ) : (
+                        <p className="best-sellers_price_p">Цена не указана</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          <div className="halal_box">
+            <img className="halal_img" src={halal} alt="Halal" />
+            <h1 className="halal_title">
+              Без свинины
+              <p className="halal_subtitle">Мы готовим из цыпленка и говядины</p>
+            </h1>
+          </div>
+
+          <div className="option__container">
+            <div className="option__name" ref={menuRef}>
+              <ul>
+                {Object.entries(menuItems).map(([category]) =>
+                  category !== "Часто продаваемые товары" ? (
+                    <li key={category}>
+                      <a
+                        className={activeCategory === category ? "active" : ""}
+                        href={`#${category}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById(category)?.scrollIntoView({
+                            behavior: "smooth",
+                          });
+                        }}
+                      >
+                        {categoryEmojis[category] || ""} {category}
+                      </a>
+                    </li>
+                  ) : null
+                )}
+              </ul>
+            </div>
+          </div>
+
+          <div className="menu-items">
+            {Object.entries(menuItems)
+              .filter(([category]) => category !== "Часто продаваемые товары")
+              .map(([category, products]) => (
+                <div
+                  className="menu-category"
+                  key={category}
+                  id={category}
+                  ref={(el) => (sectionRefs.current[category] = el)}
+                >
+                  <h2 className="menu-category-title">{category}</h2>
+                  <div className="menu-products">
+                    {products.map((product) => (
+                      <div
+                        className="menu-product"
+                        key={product.id}
+                        onClick={() => handleProductClick(product, category)}
+                      >
+                        <LazyImage
+                          className="menu-product-image"
+                          src={product.image} // Используем поле image напрямую
+                          alt={product.name}
+                          placeholder={jpgPlaceholder}
+                          onError={() => console.error(`Ошибка загрузки изображения: ${product.image}`)}
+                        />
+                        <div className="menu-product-info">
+                          <h3 className="menu-product-title">{product.name}</h3>
+                          <p className="menu-product-price">
+                            {isPizza(product)
+                              ? `${product.price_small} - ${product.price_large} Сом`
+                              : `${product.price_single || product.price || 0} Сом`}
+                          </p>
+                          <p className="menu-product-description">{product.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {orderHistory.length > 0 && (
+            <div className="order-history">
+              <h2 className="Mark_Shop">История заказов</h2>
+              <div className="history-items">
+                {orderHistory.map((order) => (
+                  <div key={order.id} className="history-item">
+                    <p>Заказ #{order.id}</p>
+                    <p>Сумма: {order.total} Сом</p>
+                    <p>Дата: {new Date(order.created_at).toLocaleString()}</p>
+                    <p>Статус: {order.status}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
+      )}
+
+      {selectedProduct && isProductModalOpen && (
+        <div
+          ref={modalRef}
+          {...swipeHandlers}
+          className={`modal ${isProductModalOpen ? "see" : ""} ${isModalClosing ? "closing" : ""}`}
+          onClick={handleOutsideClick}
+        >
+          <div
+            className="modal-content"
+            style={
+              modalRef.current
+                ? {
+                    transform: `translateY(${modalPosition}px)`,
+                    transition: isModalClosing ? "transform 0.3s ease, opacity 0.3s ease" : "none",
+                    opacity: isModalClosing ? 0 : 1,
+                  }
+                : {}
+            }
+          >
+            <button className="close-modal" onClick={closeProductModal}>
+              ⟨
+            </button>
+            <div className="modal-body">
+              <img
+                src={selectedProduct.product.image} // Используем поле image напрямую
+                alt={selectedProduct.product.name}
+                className="modal-image"
+                onError={() => console.error(`Ошибка загрузки изображения: ${selectedProduct.product.image}`)}
+              />
+              <div className="modal-info">
+                <h1>{selectedProduct.product.name}</h1>
+                <p>{selectedProduct.product.description}</p>
+                {isPizza(selectedProduct.product) && (
+                  <div className="pizza-selection">
+                    <h3>Выберите размер:</h3>
+                    <div className="pizza-sizes">
+                      <div
+                        className={`pizza-size ${pizzaSize === "small" ? "selected" : ""}`}
+                        onClick={() => setPizzaSize("small")}
+                      >
+                        Маленькая
+                      </div>
+                      <div
+                        className={`pizza-size ${pizzaSize === "medium" ? "selected" : ""}`}
+                        onClick={() => setPizzaSize("medium")}
+                      >
+                        Средняя
+                      </div>
+                      <div
+                        className={`pizza-size ${pizzaSize === "large" ? "selected" : ""}`}
+                        onClick={() => setPizzaSize("large")}
+                      >
+                        Большая
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <button className="add-to-cart" onClick={handleAddToCart}>
+                  Добавить в корзину за{" "}
+                  <span className="green-price">
+                    {isPizza(selectedProduct.product) && pizzaSize
+                      ? selectedProduct.product[`price_${pizzaSize.toLowerCase()}`]
+                      : selectedProduct.product.price_single || selectedProduct.product.price || 0}
+                  </span>{" "}
+                  Сом
+                </button>
+                {errorMessage && (
+                  <div className="error-message">
+                    <p>{errorMessage}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isCartOpen && (
+        <Cart
+          cartItems={cartItems}
+          onQuantityChange={handleQuantityChange}
+          onClick={handleCartOpen}
+        />
+      )}
+
+      {isCartOpen && (
+        <div className="order-page">
+          <div className="button-group">
+            <button className="button_buy" onClick={() => setIsOrderSection(false)}>
+              Доставка
+            </button>
+            <button className="button_buy" onClick={() => setIsOrderSection(true)}>
+              С собой
+            </button>
+          </div>
+          <div className="items-section">
+            {cartItems.map((item) => {
+              const price = item.price || 0;
+              const discountedPrice = calculateDiscountedPrice(price).toFixed(2);
+              return (
+                <div key={item.id} className="order-item">
+                  <img
+                    src={item.image} // Используем поле image напрямую
+                    alt={item.name}
+                    onError={() => console.error(`Ошибка загрузки изображения: ${item.image}`)}
+                  />
+                  <div className="order-item-info">
+                    <h3>{item.name}</h3>
+                    {discount > 0 ? (
+                      <>
+                        <p className="original-price">{price.toFixed(2)} сом</p>
+                        <p className="discounted-price">{discountedPrice} сом</p>
+                      </>
+                    ) : (
+                      <p>{price.toFixed(2)} сом</p>
+                    )}
+                    <div className="ad_more">
+                      <button
+                        className="quantity-button"
+                        onClick={() => handleQuantityChange(item.id, -1)}
+                      >
+                        -
+                      </button>
+                      <span className="quantity-display">{item.quantity}</span>
+                      <button
+                        className="quantity-button"
+                        onClick={() => handleQuantityChange(item.id, 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="order-details">
+            <div className="total-section">
+              <h3 className="total-price">
+                Итого:
+                {discount > 0 ? (
+                  <>
+                    <span className="original-total-price">{calculateTotal().total} сом</span>
+                    <span className="discounted-total-price">
+                      {calculateTotal().discountedTotal} сом
+                    </span>
+                  </>
+                ) : (
+                  `${calculateTotal().total} сом`
+                )}
+              </h3>
+            </div>
+            <div className="promo-section">
+              <label htmlFor="promo-code">Промокод:</label>
+              <input
+                type="text"
+                id="promo-code"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+              />
+              <button onClick={handlePromoCodeSubmit}>Применить</button>
+            </div>
+            <h2>{isOrderSection ? "С собой" : "Доставка"}</h2>
+            {isOrderSection ? (
+              <>
+                <div className="input-group">
+                  <label htmlFor="order-name">Имя:</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={orderDetails.name}
+                    onChange={handleOrderChange}
+                  />
+                  {formErrors.name && <p className="error">{formErrors.name}</p>}
+                </div>
+                <div className="input-group">
+                  <label htmlFor="order-phone">Телефон:</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={orderDetails.phone}
+                    onChange={handleOrderChange}
+                  />
+                  {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+                </div>
+                <div className="input-group">
+                  <label htmlFor="order-comments">Комментарии:</label>
+                  <textarea
+                    name="comments"
+                    value={orderDetails.comments}
+                    onChange={handleOrderChange}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="input-group">
+                  <label htmlFor="delivery-name">Имя:</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={deliveryDetails.name}
+                    onChange={handleDeliveryChange}
+                  />
+                  {formErrors.name && <p className="error">{formErrors.name}</p>}
+                </div>
+                <div className="input-group">
+                  <label htmlFor="delivery-phone">Телефон:</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={deliveryDetails.phone}
+                    onChange={handleDeliveryChange}
+                  />
+                  {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+                </div>
+                <div className="input-group">
+                  <label htmlFor="delivery-address">Адрес:</label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={deliveryDetails.address}
+                    onChange={handleDeliveryChange}
+                  />
+                  {formErrors.address && <p className="error">{formErrors.address}</p>}
+                </div>
+                <div className="input-group">
+                  <label htmlFor="delivery-comments">Комментарии:</label>
+                  <textarea
+                    name="comments"
+                    value={deliveryDetails.comments}
+                    onChange={handleDeliveryChange}
+                  />
+                </div>
+              </>
+            )}
+            <div className="buttons">
+              <button className="continue-button" onClick={handleCartClose}>
+                Продолжить
+              </button>
+              <button className="confirm-button" onClick={sendOrderToServer}>
+                Подтвердить заказ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isOrderSent && (
+        <div className="success-modal">
+          <div className="success-modal-content">
+            <div className="checkmark-circle">
+              <div className="checkmark"></div>
+            </div>
+            <div className="success-message">
+              Товар отправлен! Наши сотрудники свяжутся с вами.
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-export default AdminPanel;
+export default Products;
