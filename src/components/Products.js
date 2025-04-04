@@ -24,6 +24,11 @@ function Products() {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("");
   const [isOrderSection, setIsOrderSection] = useState(false);
+  const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+  const [viewedStories, setViewedStories] = useState(new Set());
+  const [progress, setProgress] = useState(0);
+  const storyTimerRef = useRef(null);
   const [orderDetails, setOrderDetails] = useState({
     name: "",
     phone: "",
@@ -266,6 +271,73 @@ function Products() {
       setIsModalClosing(false);
     }
   }, [isProductModalOpen]);
+
+  const openStoryModal = (index) => {
+    setCurrentStoryIndex(index);
+    setIsStoryModalOpen(true);
+    setProgress(0);
+    startStoryTimer();
+  };
+
+  // Функция для закрытия модального окна
+  const closeStoryModal = () => {
+    setIsStoryModalOpen(false);
+    setProgress(0);
+    clearStoryTimer();
+  };
+
+  // Таймер для автоматического перехода к следующей истории
+  const startStoryTimer = () => {
+    clearStoryTimer();
+    const duration = 5000; // 5 секунд на каждую историю
+    const interval = 50; // Обновление каждые 50ms
+    const steps = duration / interval;
+    let step = 0;
+
+    storyTimerRef.current = setInterval(() => {
+      step++;
+      setProgress((step / steps) * 100);
+      if (step >= steps) {
+        goToNextStory();
+      }
+    }, interval);
+  };
+
+  const clearStoryTimer = () => {
+    if (storyTimerRef.current) {
+      clearInterval(storyTimerRef.current);
+      storyTimerRef.current = null;
+    }
+  };
+
+  // Переход к следующей истории
+  const goToNextStory = () => {
+    setViewedStories((prev) => new Set(prev).add(currentStoryIndex));
+    if (currentStoryIndex < stories.length - 1) {
+      setCurrentStoryIndex(currentStoryIndex + 1);
+      setProgress(0);
+      startStoryTimer();
+    } else {
+      closeStoryModal();
+    }
+  };
+
+  // Переход к предыдущей истории
+  const goToPrevStory = () => {
+    if (currentStoryIndex > 0) {
+      setCurrentStoryIndex(currentStoryIndex - 1);
+      setProgress(0);
+      startStoryTimer();
+    }
+  };
+
+  // Обработчики свайпов
+  const storySwipeHandlers = useSwipeable({
+    onSwipedLeft: goToNextStory,
+    onSwipedRight: goToPrevStory,
+    preventScrollOnSwipe: true,
+  });
+
 
   const handleCartOpen = () => setIsCartOpen(true);
   const handleCartClose = () => setIsCartOpen(false);
@@ -635,29 +707,85 @@ function Products() {
 
       {selectedBranch && products.length > 0 && (
         <>
-          {/* Добавляем секцию историй */}
-          {stories.length > 0 && (
+         {stories.length > 0 && (
             <div className="stories-section">
               <h2>Истории</h2>
               <div className="stories-list">
-                {stories.map((story) => (
-                  <div key={story.id} className="story-card">
-                    <img
-                      src={story.image}
-                      alt="История"
-                      className="story-image"
-                      style={{ maxWidth: "150px", borderRadius: "8px" }}
-                      onError={(e) => {
-                        e.target.src =
-                          "https://via.placeholder.com/150?text=Image+Not+Found";
-                      }}
-                    />
-                    <p>
-                      Создано: {new Date(story.created_at).toLocaleString()}
+                {stories.map((story, index) => (
+                  <div
+                    key={story.id}
+                    className={`story-card ${
+                      viewedStories.has(index) ? "viewed" : ""
+                    }`}
+                    onClick={() => openStoryModal(index)}
+                  >
+                    <div className="story-image-wrapper">
+                      <img
+                        src={story.image}
+                        alt="История"
+                        className="story-image"
+                        onError={(e) => {
+                          e.target.src =
+                            "https://via.placeholder.com/150?text=Image+Not+Found";
+                        }}
+                      />
+                    </div>
+                    <p className="story-title">
+                      {new Date(story.created_at).toLocaleDateString()}
                     </p>
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Модальное окно для просмотра историй */}
+          {isStoryModalOpen && (
+            <div
+              className={`story-modal ${isStoryModalOpen ? "open" : ""}`}
+              {...storySwipeHandlers}
+            >
+              <div className="story-progress">
+                {stories.map((_, index) => (
+                  <div key={index} className="progress-bar">
+                    <div
+                      className="progress-bar-fill"
+                      style={{
+                        width:
+                          index === currentStoryIndex
+                            ? `${progress}%`
+                            : index < currentStoryIndex
+                            ? "100%"
+                            : "0%",
+                        transitionDuration:
+                          index === currentStoryIndex ? "5s" : "0s",
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="story-content">
+                <div
+                  className="story-nav story-nav-left"
+                  onClick={goToPrevStory}
+                />
+                <img
+                  src={stories[currentStoryIndex].image}
+                  alt="История"
+                  className="story-content-image"
+                  onError={(e) => {
+                    e.target.src =
+                      "https://via.placeholder.com/150?text=Image+Not+Found";
+                  }}
+                />
+                <div
+                  className="story-nav story-nav-right"
+                  onClick={goToNextStory}
+                />
+              </div>
+              <button className="story-modal-close" onClick={closeStoryModal}>
+                ✕
+              </button>
             </div>
           )}
           <h2 className="Mark_Shop">Часто продаваемые товары</h2>
