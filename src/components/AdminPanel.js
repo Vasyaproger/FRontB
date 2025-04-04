@@ -59,6 +59,13 @@ function AdminPanel() {
   const navigate = useNavigate();
   const baseURL = "https://nukesul-brepb-651f.twc1.net";
 
+  // Функция для формирования URL изображения через бэкенд
+  const getImageUrl = (imageKey) => {
+    if (!imageKey) return "https://via.placeholder.com/150?text=Image+Not+Found";
+    const key = imageKey.split("/").pop(); // Извлекаем только имя файла (например, 174359528337.jpg)
+    return `${baseURL}/product-image/${key}`;
+  };
+
   useEffect(() => {
     const verifyToken = async () => {
       const storedToken = localStorage.getItem("token");
@@ -95,13 +102,13 @@ function AdminPanel() {
         categoriesRes,
         usersRes,
         promoCodesRes,
-        storiesRes
+        storiesRes,
       ] = await Promise.all([
         fetch(`${baseURL}/branches`, { headers }),
         fetch(`${baseURL}/categories`, { headers }),
         fetch(`${baseURL}/users`, { headers }),
         fetch(`${baseURL}/promo-codes`, { headers }),
-        fetch(`${baseURL}/stories`, { headers })
+        fetch(`${baseURL}/stories`, { headers }),
       ]);
 
       const branchesData = await branchesRes.json();
@@ -638,6 +645,8 @@ function AdminPanel() {
         setProducts((prev) => [...prev, newProduct]);
         alert("Продукт добавлен!");
       }
+      // Обновляем imagePreview, чтобы он указывал на URL через бэкенд
+      setImagePreview(getImageUrl(newProduct.image));
       resetFormFields();
       setEditMode(false);
       setEditingProductId(null);
@@ -709,7 +718,8 @@ function AdminPanel() {
     setPriceLarge(product.price_large || "");
     setPriceSingle(product.price_single || "");
     setImage(null);
-    setImagePreview(product.image);
+    // Устанавливаем imagePreview как URL через бэкенд
+    setImagePreview(getImageUrl(product.image));
 
     let count = 0;
     if (product.price_small) count++;
@@ -1184,7 +1194,7 @@ function AdminPanel() {
               <div key={product.id} className="product-card">
                 {product.image ? (
                   <img
-                    src={product.image}
+                    src={getImageUrl(product.image)} // Используем getImageUrl для формирования URL
                     alt={product.name}
                     className="product-image"
                     onError={(e) => {
