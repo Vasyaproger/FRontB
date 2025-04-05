@@ -1,4 +1,3 @@
-// Products.jsx
 import React, { useState, useEffect, useRef } from "react";
 import Cart from "./Cart";
 import "../styles/Products.css";
@@ -353,8 +352,15 @@ function Products() {
     preventScrollOnSwipe: true,
   });
 
-  const handleCartOpen = () => setIsCartOpen(true);
-  const handleCartClose = () => setIsCartOpen(false);
+  const handleCartOpen = () => {
+    console.log("Открываем корзину");
+    setIsCartOpen(true);
+  };
+
+  const handleCartClose = () => {
+    console.log("Закрываем корзину");
+    setIsCartOpen(false);
+  };
 
   const handleProductClick = (product, category) => {
     setSelectedProduct({ product, category });
@@ -963,13 +969,11 @@ function Products() {
                       <h2 className="menu-category-title">{category}</h2>
                       <div className="menu-products">
                         {products.map((product) => {
-                          // Проверяем, есть ли у продукта несколько размеров
                           const hasMultipleSizes =
                             product.price_small ||
                             product.price_medium ||
                             product.price_large;
 
-                          // Если есть несколько размеров, находим минимальную и максимальную цену
                           let priceRange = null;
                           if (hasMultipleSizes) {
                             const prices = [];
@@ -1168,210 +1172,226 @@ function Products() {
         </div>
       )}
 
-
       <Cart cartItems={cartItems} onClick={handleCartOpen} />
 
-{isCartOpen && (
-  <div className={`order-page ${isCartOpen ? "open" : ""}`}>
-    {cartItems.length === 0 ? (
-      <div className="empty-cart">
-        <p>Корзина пуста</p>
-        <button className="close-cart" onClick={handleCartClose}>
-          Закрыть
-        </button>
-      </div>
-    ) : (
-      <>
-        <div className="button-group">
-          <button
-            className={`button_buy ${!isOrderSection ? "active" : ""}`}
-            onClick={() => setIsOrderSection(false)}
-          >
-            Доставка
-          </button>
-          <button
-            className={`button_buy ${isOrderSection ? "active" : ""}`}
-            onClick={() => setIsOrderSection(true)}
-          >
-            С собой
-          </button>
-        </div>
-        <div className="items-section">
-          {cartItems.map((item) => {
-            const price = item.price || 0;
-            const discountedPrice = calculateDiscountedPrice(price).toFixed(2);
-            return (
-              <div key={item.id} className="order-item">
-                <img
-                  src={getImageUrl(item.image)}
-                  alt={item.name}
-                  onError={(e) => (e.target.src = jpgPlaceholder)}
-                />
-                <div className="order-item-info">
-                  <h3>{item.name || "Без названия"}</h3>
-                  {item.extraIngredients?.length > 0 && (
-                    <p>
-                      Доп: {item.extraIngredients.map((i) => i.name).join(", ")}
-                    </p>
-                  )}
-                  {discount > 0 ? (
-                    <>
-                      <p className="original-price">{price.toFixed(2)} сом</p>
-                      <p className="discounted-price">{discountedPrice} сом</p>
-                    </>
-                  ) : (
-                    <p>{price.toFixed(2)} сом</p>
-                  )}
-                  <div className="ad_more">
-                    <button
-                      className="quantity-button"
-                      onClick={() => handleQuantityChange(item.id, -1)}
-                    >
-                      -
-                    </button>
-                    <span className="quantity-display">{item.quantity || 0}</span>
-                    <button
-                      className="quantity-button"
-                      onClick={() => handleQuantityChange(item.id, 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="order-details">
-          <div className="total-section">
-            <h3 className="total-price">
-              Итого:
-              {discount > 0 ? (
-                <>
-                  <span className="original-total-price">
-                    {calculateTotal().total} сом
-                  </span>
-                  <span className="discounted-total-price">
-                    {calculateTotal().discountedTotal} сом
-                  </span>
-                </>
-              ) : (
-                `${calculateTotal().total} сом`
-              )}
-            </h3>
-          </div>
-          <div className="promo-section">
-            <label htmlFor="promo-code">Промокод:</label>
-            <input
-              type="text"
-              id="promo-code"
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
-            />
-            <button onClick={handlePromoCodeSubmit}>Применить</button>
-          </div>
-          {isOrderSection ? (
-            <div className="order-form">
-              <h3>Данные для заказа (с собой)</h3>
-              <div className="form-group">
-                <label htmlFor="pickup-name">Имя:</label>
-                <input
-                  type="text"
-                  id="pickup-name"
-                  name="name"
-                  value={orderDetails.name}
-                  onChange={handleOrderChange}
-                  placeholder="Введите ваше имя"
-                />
-                {formErrors.name && <p className="error">{formErrors.name}</p>}
-              </div>
-              <div className="form-group">
-                <label htmlFor="pickup-phone">Телефон:</label>
-                <input
-                  type="text"
-                  id="pickup-phone"
-                  name="phone"
-                  value={orderDetails.phone}
-                  onChange={handleOrderChange}
-                  placeholder="+996123456789"
-                />
-                {formErrors.phone && <p className="error">{formErrors.phone}</p>}
-              </div>
-              <div className="form-group">
-                <label htmlFor="pickup-comments">Комментарии:</label>
-                <textarea
-                  id="pickup-comments"
-                  name="comments"
-                  value={orderDetails.comments}
-                  onChange={handleOrderChange}
-                  placeholder="Дополнительные пожелания"
-                />
-              </div>
+      {isCartOpen && (
+        <div className={`order-page ${isCartOpen ? "open" : ""}`}>
+          {cartItems.length === 0 ? (
+            <div className="empty-cart">
+              <p>Корзина пуста</p>
+              <button className="close-cart" onClick={handleCartClose}>
+                Закрыть
+              </button>
             </div>
           ) : (
-            <div className="order-form">
-              <h3>Данные для доставки</h3>
-              <div className="form-group">
-                <label htmlFor="delivery-name">Имя:</label>
-                <input
-                  type="text"
-                  id="delivery-name"
-                  name="name"
-                  value={deliveryDetails.name}
-                  onChange={handleDeliveryChange}
-                  placeholder="Введите ваше имя"
-                />
-                {formErrors.name && <p className="error">{formErrors.name}</p>}
+            <>
+              <div className="button-group">
+                <button
+                  className={`button_buy ${!isOrderSection ? "active" : ""}`}
+                  onClick={() => setIsOrderSection(false)}
+                >
+                  Доставка
+                </button>
+                <button
+                  className={`button_buy ${isOrderSection ? "active" : ""}`}
+                  onClick={() => setIsOrderSection(true)}
+                >
+                  С собой
+                </button>
               </div>
-              <div className="form-group">
-                <label htmlFor="delivery-phone">Телефон:</label>
-                <input
-                  type="text"
-                  id="delivery-phone"
-                  name="phone"
-                  value={deliveryDetails.phone}
-                  onChange={handleDeliveryChange}
-                  placeholder="+996123456789"
-                />
-                {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+              <div className="items-section">
+                {cartItems.map((item) => {
+                  const price = item.price || 0;
+                  const discountedPrice = calculateDiscountedPrice(
+                    price
+                  ).toFixed(2);
+                  return (
+                    <div key={item.id} className="order-item">
+                      <img
+                        src={getImageUrl(item.image)}
+                        alt={item.name}
+                        onError={(e) => (e.target.src = jpgPlaceholder)}
+                      />
+                      <div className="order-item-info">
+                        <h3>{item.name || "Без названия"}</h3>
+                        {item.extraIngredients?.length > 0 && (
+                          <p>
+                            Доп:{" "}
+                            {item.extraIngredients.map((i) => i.name).join(", ")}
+                          </p>
+                        )}
+                        {discount > 0 ? (
+                          <>
+                            <p className="original-price">
+                              {price.toFixed(2)} сом
+                            </p>
+                            <p className="discounted-price">
+                              {discountedPrice} сом
+                            </p>
+                          </>
+                        ) : (
+                          <p>{price.toFixed(2)} сом</p>
+                        )}
+                        <div className="ad_more">
+                          <button
+                            className="quantity-button"
+                            onClick={() => handleQuantityChange(item.id, -1)}
+                          >
+                            -
+                          </button>
+                          <span className="quantity-display">
+                            {item.quantity || 0}
+                          </span>
+                          <button
+                            className="quantity-button"
+                            onClick={() => handleQuantityChange(item.id, 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="form-group">
-                <label htmlFor="delivery-address">Адрес:</label>
-                <input
-                  type="text"
-                  id="delivery-address"
-                  name="address"
-                  value={deliveryDetails.address}
-                  onChange={handleDeliveryChange}
-                  placeholder="Введите адрес доставки"
-                />
-                {formErrors.address && (
-                  <p className="error">{formErrors.address}</p>
+              <div className="order-details">
+                <div className="total-section">
+                  <h3 className="total-price">
+                    Итого:
+                    {discount > 0 ? (
+                      <>
+                        <span className="original-total-price">
+                          {calculateTotal().total} сом
+                        </span>
+                        <span className="discounted-total-price">
+                          {calculateTotal().discountedTotal} сом
+                        </span>
+                      </>
+                    ) : (
+                      `${calculateTotal().total} сом`
+                    )}
+                  </h3>
+                </div>
+                <div className="promo-section">
+                  <label htmlFor="promo-code">Промокод:</label>
+                  <input
+                    type="text"
+                    id="promo-code"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                  />
+                  <button onClick={handlePromoCodeSubmit}>Применить</button>
+                </div>
+                {isOrderSection ? (
+                  <div className="order-form">
+                    <h3>Данные для заказа (с собой)</h3>
+                    <div className="form-group">
+                      <label htmlFor="pickup-name">Имя:</label>
+                      <input
+                        type="text"
+                        id="pickup-name"
+                        name="name"
+                        value={orderDetails.name}
+                        onChange={handleOrderChange}
+                        placeholder="Введите ваше имя"
+                      />
+                      {formErrors.name && (
+                        <p className="error">{formErrors.name}</p>
+                      )}
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="pickup-phone">Телефон:</label>
+                      <input
+                        type="text"
+                        id="pickup-phone"
+                        name="phone"
+                        value={orderDetails.phone}
+                        onChange={handleOrderChange}
+                        placeholder="+996123456789"
+                      />
+                      {formErrors.phone && (
+                        <p className="error">{formErrors.phone}</p>
+                      )}
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="pickup-comments">Комментарии:</label>
+                      <textarea
+                        id="pickup-comments"
+                        name="comments"
+                        value={orderDetails.comments}
+                        onChange={handleOrderChange}
+                        placeholder="Дополнительные пожелания"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="order-form">
+                    <h3>Данные для доставки</h3>
+                    <div className="form-group">
+                      <label htmlFor="delivery-name">Имя:</label>
+                      <input
+                        type="text"
+                        id="delivery-name"
+                        name="name"
+                        value={deliveryDetails.name}
+                        onChange={handleDeliveryChange}
+                        placeholder="Введите ваше имя"
+                      />
+                      {formErrors.name && (
+                        <p className="error">{formErrors.name}</p>
+                      )}
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="delivery-phone">Телефон:</label>
+                      <input
+                        type="text"
+                        id="delivery-phone"
+                        name="phone"
+                        value={deliveryDetails.phone}
+                        onChange={handleDeliveryChange}
+                        placeholder="+996123456789"
+                      />
+                      {formErrors.phone && (
+                        <p className="error">{formErrors.phone}</p>
+                      )}
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="delivery-address">Адрес:</label>
+                      <input
+                        type="text"
+                        id="delivery-address"
+                        name="address"
+                        value={deliveryDetails.address}
+                        onChange={handleDeliveryChange}
+                        placeholder="Введите адрес доставки"
+                      />
+                      {formErrors.address && (
+                        <p className="error">{formErrors.address}</p>
+                      )}
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="delivery-comments">Комментарии:</label>
+                      <textarea
+                        id="delivery-comments"
+                        name="comments"
+                        value={deliveryDetails.comments}
+                        onChange={handleDeliveryChange}
+                        placeholder="Дополнительные пожелания"
+                      />
+                    </div>
+                  </div>
                 )}
+                <button className="submit-order" onClick={sendOrderToServer}>
+                  Оформить заказ
+                </button>
+                <button className="close-cart" onClick={handleCartClose}>
+                  Закрыть корзину
+                </button>
               </div>
-              <div className="form-group">
-                <label htmlFor="delivery-comments">Комментарии:</label>
-                <textarea
-                  id="delivery-comments"
-                  name="comments"
-                  value={deliveryDetails.comments}
-                  onChange={handleDeliveryChange}
-                  placeholder="Дополнительные пожелания"
-                />
-              </div>
-            </div>
+            </>
           )}
-          <button className="submit-order" onClick={sendOrderToServer}>
-            Оформить заказ
-          </button>
-          <button className="close-cart" onClick={handleCartClose}>
-            Закрыть корзину
-          </button>
         </div>
-      </>
-    )}
-  </div>
-)}
+      )}
 
       {isOrderSent && (
         <div className="order-confirmation">
