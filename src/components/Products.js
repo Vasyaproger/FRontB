@@ -1,3 +1,4 @@
+// Products.jsx
 import React, { useState, useEffect, useRef } from "react";
 import Cart from "./Cart";
 import "../styles/Products.css";
@@ -29,9 +30,9 @@ function Products() {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [viewedStories, setViewedStories] = useState(new Set());
   const [progress, setProgress] = useState(0);
-  const [searchQuery, setSearchQuery] = useState(""); // Поиск
-  const [filterPrice, setFilterPrice] = useState(null); // Фильтр по цене
-  const [extraIngredients, setExtraIngredients] = useState([]); // Дополнительные ингредиенты
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPrice, setFilterPrice] = useState(null);
+  const [extraIngredients, setExtraIngredients] = useState([]);
   const storyTimerRef = useRef(null);
   const [orderDetails, setOrderDetails] = useState({
     name: "",
@@ -160,9 +161,6 @@ function Products() {
         localStorage.removeItem("selectedBranch");
         setIsBranchModalOpen(true);
       }
-      if (!selectedBranch) {
-        setIsBranchModalOpen(true);
-      }
     } catch (error) {
       console.error("Ошибка при загрузке филиалов:", error);
       setError("Не удалось загрузить филиалы: " + error.message);
@@ -215,8 +213,26 @@ function Products() {
     }
   };
 
+  const fetchStories = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${baseURL}/api/public/stories`);
+      if (!response.ok) {
+        throw new Error(`Ошибка при загрузке историй: ${response.status}`);
+      }
+      const data = await response.json();
+      setStories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Ошибка при загрузке историй:", error);
+      setError("Не удалось загрузить истории: " + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchBranches();
+    fetchStories();
   }, []);
 
   useEffect(() => {
@@ -343,7 +359,7 @@ function Products() {
   const handleProductClick = (product, category) => {
     setSelectedProduct({ product, category });
     if (category !== "Пиццы") setPizzaSize(null);
-    setExtraIngredients([]); // Сбрасываем дополнительные ингредиенты
+    setExtraIngredients([]);
     setIsProductModalOpen(true);
   };
 
@@ -365,7 +381,7 @@ function Products() {
       }
 
       const extraIngredientsPrice = extraIngredients.reduce(
-        (total, ingredient) => total + ingredient.price,
+        (total, ingredient) => total + (ingredient.price || 0),
         0
       );
 
@@ -387,20 +403,23 @@ function Products() {
         extraIngredients: extraIngredients,
       };
 
-      const existingItemIndex = cartItems.findIndex(
-        (item) => item.id === itemToAdd.id
-      );
-
-      if (existingItemIndex > -1) {
-        const updatedCartItems = cartItems.map((item, index) =>
-          index === existingItemIndex
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+      setCartItems((prevItems) => {
+        const existingItemIndex = prevItems.findIndex(
+          (item) =>
+            item.id === itemToAdd.id &&
+            JSON.stringify(item.extraIngredients) ===
+              JSON.stringify(itemToAdd.extraIngredients)
         );
-        setCartItems(updatedCartItems);
-      } else {
-        setCartItems([...cartItems, itemToAdd]);
-      }
+
+        if (existingItemIndex > -1) {
+          return prevItems.map((item, index) =>
+            index === existingItemIndex
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          );
+        }
+        return [...prevItems, itemToAdd];
+      });
 
       closeProductModal();
     } catch (error) {
@@ -444,7 +463,7 @@ function Products() {
         throw new Error(errorData.message || "Неверный промокод");
       }
       const data = await response.json();
-      setDiscount(data.discount);
+      setDiscount(data.discount || 0);
       alert(`Промокод применен! Скидка ${data.discount}% добавлена.`);
     } catch (error) {
       console.error("Ошибка проверки промокода:", error);
@@ -490,18 +509,20 @@ function Products() {
         quantity: item.quantity,
         originalPrice: item.price || 0,
         discountedPrice: calculateDiscountedPrice(item.price || 0),
+        extraIngredients: item.extraIngredients,
       }));
 
       const response = await fetch(`${baseURL}/api/public/send-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orderDetails,
-          deliveryDetails,
+          orderDetails: isOrderSection ? orderDetails : {},
+          deliveryDetails: !isOrderSection ? deliveryDetails : {},
           cartItems: cartItemsWithPrices,
           discount,
           promoCode,
           branchId: selectedBranch,
+          orderType: isOrderSection ? "pickup" : "delivery",
         }),
       });
 
@@ -513,6 +534,10 @@ function Products() {
       setIsOrderSent(true);
       setCartItems([]);
       localStorage.removeItem("cartItems");
+      setPromoCode("");
+      setDiscount(0);
+      setOrderDetails({ name: "", phone: "", comments: "" });
+      setDeliveryDetails({ name: "", phone: "", address: "", comments: "" });
       setTimeout(() => setIsOrderSent(false), 4000);
       fetchOrderHistory();
     } catch (error) {
@@ -580,6 +605,8 @@ function Products() {
     setProducts([]);
     setMenuItems({});
     setOrderHistory([]);
+    setCartItems([]);
+    localStorage.removeItem("cartItems");
   };
 
   const handleChangeBranch = () => {
@@ -604,7 +631,7 @@ function Products() {
           `Ошибка при загрузке истории заказов: ${response.status}`
         );
       const data = await response.json();
-      setOrderHistory(data);
+      setOrderHistory(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Ошибка при загрузке истории заказов:", error);
       setError("Не удалось загрузить историю заказов: " + error.message);
@@ -613,36 +640,13 @@ function Products() {
     }
   };
 
-  const fetchStories = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${baseURL}/api/public/stories`);
-      if (!response.ok) {
-        throw new Error(`Ошибка при загрузке историй: ${response.status}`);
-      }
-      const storiesData = await response.json();
-      setStories(Array.isArray(storiesData) ? storiesData : []);
-    } catch (error) {
-      console.error("Ошибка при загрузке историй:", error);
-      setError("Не удалось загрузить истории: " + error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBranches();
-    fetchStories();
-  }, []);
-
-  // Функция фильтрации продуктов
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     const matchesPrice =
       !filterPrice ||
-      (product.price_single || product.price_small || product.price) <=
+      (product.price_single || product.price_small || product.price || 0) <=
         filterPrice;
     return matchesSearch && matchesPrice;
   });
@@ -756,7 +760,7 @@ function Products() {
         </div>
       </header>
 
-      {selectedBranch && products.length > 0 && (
+      {selectedBranch && (
         <>
           {stories.length > 0 && (
             <div className="stories-section">
@@ -844,8 +848,11 @@ function Products() {
             <div className="filter-options">
               <select
                 onChange={(e) =>
-                  setFilterPrice(e.target.value ? parseInt(e.target.value) : null)
+                  setFilterPrice(
+                    e.target.value ? parseInt(e.target.value) : null
+                  )
                 }
+                value={filterPrice || ""}
               >
                 <option value="">Все цены</option>
                 <option value="500">До 500 сом</option>
@@ -855,151 +862,190 @@ function Products() {
             </div>
           </div>
 
-          <h2 className="Mark_Shop">Часто продаваемые товары</h2>
-          <div className="best-sellers">
-            {products
-              .filter(
-                (product) => product.category === "Часто продаваемые товары"
-              )
-              .map((product) => (
-                <div
-                  className="best-seller-product"
-                  key={product.id}
-                  onClick={() =>
-                    handleProductClick(product, "Часто продаваемые товары")
-                  }
-                >
-                  <LazyImage
-                    className="best-seller-product-image"
-                    src={getImageUrl(product.image_url)}
-                    alt={product.name}
-                    placeholder={jpgPlaceholder}
-                    onError={() =>
-                      console.error(
-                        `Ошибка загрузки изображения: ${product.image_url}`
-                      )
-                    }
-                  />
-                  <div className="best-seller-product-info">
-                    <h3 className="best-seller-product-title">
-                      {product.name}
-                    </h3>
-                    <div className="best-seller-product-price">
-                      {isPizza(product) ? (
-                        <p className="best-sellers_price_p">
-                          {product.price_small} - {product.price_large} Сом
-                        </p>
-                      ) : product.price_single ? (
-                        <p className="best-sellers_price_p">
-                          Цена: {product.price_single} Сом
-                        </p>
-                      ) : (
-                        <p className="best-sellers_price_p">Цена не указана</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-          </div>
-
-          <div className="halal_box">
-            <img className="halal_img" src={halal} alt="Halal" />
-            <h1 className="halal_title">
-              Без свинины
-              <p className="halal_subtitle">
-                Мы готовим из цыпленка и говядины
-              </p>
-            </h1>
-          </div>
-
-          <div className="option__container">
-            <div className="option__name" ref={menuRef}>
-              <ul>
-                {Object.entries(sortedFilteredCategories).map(([category]) =>
-                  category !== "Часто продаваемые товары" ? (
-                    <li key={category}>
-                      <a
-                        className={activeCategory === category ? "active" : ""}
-                        href={`#${category}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          document.getElementById(category)?.scrollIntoView({
-                            behavior: "smooth",
-                          });
-                        }}
-                      >
-                        {categoryEmojis[category] || ""} {category}
-                      </a>
-                    </li>
-                  ) : null
-                )}
-              </ul>
-            </div>
-          </div>
-
-          <div className="menu-items">
-            {Object.entries(sortedFilteredCategories)
-              .filter(([category]) => category !== "Часто продаваемые товары")
-              .map(([category, products]) => (
-                <div
-                  className="menu-category"
-                  key={category}
-                  id={category}
-                  ref={(el) => (sectionRefs.current[category] = el)}
-                >
-                  <h2 className="menu-category-title">{category}</h2>
-                  <div className="menu-products">
-                    {products.map((product) => (
-                      <div
-                        className="menu-product"
-                        key={product.id}
-                        onClick={() => handleProductClick(product, category)}
-                      >
-                        <LazyImage
-                          className="menu-product-image"
-                          src={getImageUrl(product.image_url)}
-                          alt={product.name}
-                          placeholder={jpgPlaceholder}
-                          onError={() =>
-                            console.error(
-                              `Ошибка загрузки изображения: ${product.image_url}`
-                            )
-                          }
-                        />
-                        <div className="menu-product-info">
-                          <h3 className="menu-product-title">{product.name}</h3>
-                          <p className="menu-product-price">
-                            {isPizza(product)
-                              ? `${product.price_small} - ${product.price_large} Сом`
-                              : `${
-                                  product.price_single || product.price || 0
-                                } Сом`}
-                          </p>
-                          <p className="menu-product-description">
-                            {product.description}
-                          </p>
+          {products.length > 0 && (
+            <>
+              <h2 className="Mark_Shop">Часто продаваемые товары</h2>
+              <div className="best-sellers">
+                {products
+                  .filter(
+                    (product) => product.category === "Часто продаваемые товары"
+                  )
+                  .map((product) => (
+                    <div
+                      className="best-seller-product"
+                      key={product.id}
+                      onClick={() =>
+                        handleProductClick(product, "Часто продаваемые товары")
+                      }
+                    >
+                      <LazyImage
+                        className="best-seller-product-image"
+                        src={getImageUrl(product.image_url)}
+                        alt={product.name}
+                        placeholder={jpgPlaceholder}
+                      />
+                      <div className="best-seller-product-info">
+                        <h3 className="best-seller-product-title">
+                          {product.name}
+                        </h3>
+                        <div className="best-seller-product-price">
+                          {isPizza(product) ? (
+                            <p className="best-sellers_price_p">
+                              {product.price_small} - {product.price_large} Сом
+                            </p>
+                          ) : product.price_single ? (
+                            <p className="best-sellers_price_p">
+                              Цена: {product.price_single} Сом
+                            </p>
+                          ) : (
+                            <p className="best-sellers_price_p">
+                              Цена не указана
+                            </p>
+                          )}
                         </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              <div className="halal_box">
+                <img className="halal_img" src={halal} alt="Halal" />
+                <h1 className="halal_title">
+                  Без свинины
+                  <p className="halal_subtitle">
+                    Мы готовим из цыпленка и говядины
+                  </p>
+                </h1>
+              </div>
+
+              <div className="option__container">
+                <div className="option__name" ref={menuRef}>
+                  <ul>
+                    {Object.entries(sortedFilteredCategories).map(
+                      ([category]) =>
+                        category !== "Часто продаваемые товары" ? (
+                          <li key={category}>
+                            <a
+                              className={
+                                activeCategory === category ? "active" : ""
+                              }
+                              href={`#${category}`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                document
+                                  .getElementById(category)
+                                  ?.scrollIntoView({
+                                    behavior: "smooth",
+                                  });
+                              }}
+                            >
+                              {categoryEmojis[category] || ""} {category}
+                            </a>
+                          </li>
+                        ) : null
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="menu-items">
+                {Object.entries(sortedFilteredCategories)
+                  .filter(
+                    ([category]) => category !== "Часто продаваемые товары"
+                  )
+                  .map(([category, products]) => (
+                    <div
+                      className="menu-category"
+                      key={category}
+                      id={category}
+                      ref={(el) => (sectionRefs.current[category] = el)}
+                    >
+                      <h2 className="menu-category-title">{category}</h2>
+                      <div className="menu-products">
+                        {products.map((product) => {
+                          // Проверяем, есть ли у продукта несколько размеров
+                          const hasMultipleSizes =
+                            product.price_small ||
+                            product.price_medium ||
+                            product.price_large;
+
+                          // Если есть несколько размеров, находим минимальную и максимальную цену
+                          let priceRange = null;
+                          if (hasMultipleSizes) {
+                            const prices = [];
+                            if (product.price_small)
+                              prices.push(Number(product.price_small));
+                            if (product.price_medium)
+                              prices.push(Number(product.price_medium));
+                            if (product.price_large)
+                              prices.push(Number(product.price_large));
+
+                            if (prices.length > 0) {
+                              const minPrice = Math.min(...prices);
+                              const maxPrice = Math.max(...prices);
+                              priceRange = `от ${minPrice} - ${maxPrice} Сом`;
+                            } else {
+                              priceRange = "Цена не указана";
+                            }
+                          }
+
+                          return (
+                            <div
+                              className="menu-product"
+                              key={product.id}
+                              onClick={() =>
+                                handleProductClick(product, category)
+                              }
+                            >
+                              <LazyImage
+                                className="menu-product-image"
+                                src={getImageUrl(product.image_url)}
+                                alt={product.name}
+                                placeholder={jpgPlaceholder}
+                              />
+                              <div className="menu-product-info">
+                                <h3 className="menu-product-title">
+                                  {product.name}
+                                </h3>
+                                <p className="menu-product-price">
+                                  {hasMultipleSizes
+                                    ? priceRange
+                                    : `${
+                                        product.price_single ||
+                                        product.price ||
+                                        0
+                                      } Сом`}
+                                </p>
+                                <p className="menu-product-description">
+                                  {product.description}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              {orderHistory.length > 0 && (
+                <div className="order-history">
+                  <h2 className="Mark_Shop">История заказов</h2>
+                  <div className="history-items">
+                    {orderHistory.map((order) => (
+                      <div key={order.id} className="history-item">
+                        <p>Заказ #{order.id}</p>
+                        <p>Сумма: {order.total} Сом</p>
+                        <p>
+                          Дата: {new Date(order.created_at).toLocaleString()}
+                        </p>
+                        <p>Статус: {order.status}</p>
                       </div>
                     ))}
                   </div>
                 </div>
-              ))}
-          </div>
-
-          {orderHistory.length > 0 && (
-            <div className="order-history">
-              <h2 className="Mark_Shop">История заказов</h2>
-              <div className="history-items">
-                {orderHistory.map((order) => (
-                  <div key={order.id} className="history-item">
-                    <p>Заказ #{order.id}</p>
-                    <p>Сумма: {order.total} Сом</p>
-                    <p>Дата: {new Date(order.created_at).toLocaleString()}</p>
-                    <p>Статус: {order.status}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -1015,17 +1061,13 @@ function Products() {
         >
           <div
             className="modal-content"
-            style={
-              modalRef.current
-                ? {
-                    transform: `translateY(${modalPosition}px)`,
-                    transition: isModalClosing
-                      ? "transform 0.3s ease, opacity 0.3s ease"
-                      : "none",
-                    opacity: isModalClosing ? 0 : 1,
-                  }
-                : {}
-            }
+            style={{
+              transform: `translateY(${modalPosition}px)`,
+              transition: isModalClosing
+                ? "transform 0.3s ease, opacity 0.3s ease"
+                : "none",
+              opacity: isModalClosing ? 0 : 1,
+            }}
           >
             <button className="close-modal" onClick={closeProductModal}>
               ✕
@@ -1035,11 +1077,7 @@ function Products() {
                 src={getImageUrl(selectedProduct.product.image_url)}
                 alt={selectedProduct.product.name}
                 className="modal-image"
-                onError={() =>
-                  console.error(
-                    `Ошибка загрузки изображения: ${selectedProduct.product.image_url}`
-                  )
-                }
+                onError={(e) => (e.target.src = jpgPlaceholder)}
               />
               <div className="modal-info">
                 <h1>{selectedProduct.product.name}</h1>
@@ -1113,7 +1151,7 @@ function Products() {
                         selectedProduct.product.price ||
                         0) +
                       extraIngredients.reduce(
-                        (total, ingredient) => total + ingredient.price,
+                        (total, ingredient) => total + (ingredient.price || 0),
                         0
                       )}
                   </span>{" "}
@@ -1130,223 +1168,210 @@ function Products() {
         </div>
       )}
 
-      {!isCartOpen && (
-        <Cart
-          cartItems={cartItems}
-          onQuantityChange={handleQuantityChange}
-          onClick={handleCartOpen}
-        />
-      )}
-      {isCartOpen && (
-        <div className={`order-page ${isCartOpen ? "" : "hidden"}`}>
-          <div className="button-group">
-            <button
-              className={`button_buy ${!isOrderSection ? "active" : ""}`}
-              onClick={() => setIsOrderSection(false)}
-            >
-              Доставка
-            </button>
-            <button
-              className={`button_buy ${isOrderSection ? "active" : ""}`}
-              onClick={() => setIsOrderSection(true)}
-            >
-              С собой
-            </button>
-          </div>
-          <div className="items-section">
-            {cartItems.length === 0 ? (
-              <p style={{ textAlign: "center", color: "#6c757d" }}>
-                Ваша корзина пуста
-              </p>
-            ) : (
-              cartItems.map((item) => {
-                const price = item.price || 0;
-                const discountedPrice = calculateDiscountedPrice(
-                  price
-                ).toFixed(2);
-                return (
-                  <div key={item.id} className="order-item">
-                    <img
-                      src={getImageUrl(item.image)}
-                      alt={item.name}
-                      onError={() =>
-                        console.error(
-                          `Ошибка загрузки изображения: ${item.image}`
-                        )
-                      }
-                    />
-                    <div className="order-item-info">
-                      <h3>{item.name}</h3>
-                      {item.extraIngredients.length > 0 && (
-                        <p>
-                          Доп: {item.extraIngredients.map((i) => i.name).join(", ")}
-                        </p>
-                      )}
-                      {discount > 0 ? (
-                        <>
-                          <p className="original-price">
-                            {price.toFixed(2)} сом
-                          </p>
-                          <p className="discounted-price">
-                            {discountedPrice} сом
-                          </p>
-                        </>
-                      ) : (
-                        <p>{price.toFixed(2)} сом</p>
-                      )}
-                      <div className="ad_more">
-                        <button
-                          className="quantity-button"
-                          onClick={() => handleQuantityChange(item.id, -1)}
-                        >
-                          -
-                        </button>
-                        <span className="quantity-display">{item.quantity}</span>
-                        <button
-                          className="quantity-button"
-                          onClick={() => handleQuantityChange(item.id, 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-          <div className="order-details">
-            <div className="total-section">
-              <h3 className="total-price">
-                Итого:
-                {discount > 0 ? (
-                  <>
-                    <span className="original-total-price">
-                      {calculateTotal().total} сом
-                    </span>
-                    <span className="discounted-total-price">
-                      {calculateTotal().discountedTotal} сом
-                    </span>
-                  </>
-                ) : (
-                  `${calculateTotal().total} сом`
-                )}
-              </h3>
-            </div>
-            <div className="promo-section">
-              <label htmlFor="promo-code">Промокод:</label>
-              <input
-                type="text"
-                id="promo-code"
-                value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value)}
-              />
-              <button onClick={handlePromoCodeSubmit}>Применить</button>
-            </div>
-            {isOrderSection ? (
-              <div className="order-form">
-                <h3>Данные для заказа (с собой)</h3>
-                <div className="form-group">
-                  <label htmlFor="name">Имя:</label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={orderDetails.name}
-                    onChange={handleOrderChange}
-                    placeholder="Введите ваше имя"
-                  />
-                  {formErrors.name && <p className="error">{formErrors.name}</p>}
-                </div>
-                <div className="form-group">
-                  <label htmlFor="phone">Телефон:</label>
-                  <input
-                    type="text"
-                    id="phone"
-                    name="phone"
-                    value={orderDetails.phone}
-                    onChange={handleOrderChange}
-                    placeholder="+996123456789"
-                  />
-                  {formErrors.phone && (
-                    <p className="error">{formErrors.phone}</p>
-                  )}
-                </div>
-                <div className="form-group">
-                  <label htmlFor="comments">Комментарии:</label>
-                  <textarea
-                    id="comments"
-                    name="comments"
-                    value={orderDetails.comments}
-                    onChange={handleOrderChange}
-                    placeholder="Дополнительные пожелания"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="order-form">
-                <h3>Данные для доставки</h3>
-                <div className="form-group">
-                  <label htmlFor="name">Имя:</label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={deliveryDetails.name}
-                    onChange={handleDeliveryChange}
-                    placeholder="Введите ваше имя"
-                  />
-                  {formErrors.name && <p className="error">{formErrors.name}</p>}
-                </div>
-                <div className="form-group">
-                  <label htmlFor="phone">Телефон:</label>
-                  <input
-                    type="text"
-                    id="phone"
-                    name="phone"
-                    value={deliveryDetails.phone}
-                    onChange={handleDeliveryChange}
-                    placeholder="+996123456789"
-                  />
-                  {formErrors.phone && (
-                    <p className="error">{formErrors.phone}</p>
-                  )}
-                </div>
-                <div className="form-group">
-                  <label htmlFor="address">Адрес:</label>
-                  <input
-                    type="text"
-                    id="address"
-                    name="address"
-                    value={deliveryDetails.address}
-                    onChange={handleDeliveryChange}
-                    placeholder="Введите адрес доставки"
-                  />
-                  {formErrors.address && (
-                    <p className="error">{formErrors.address}</p>
-                  )}
-                </div>
-                <div className="form-group">
-                  <label htmlFor="comments">Комментарии:</label>
-                  <textarea
-                    id="comments"
-                    name="comments"
-                    value={deliveryDetails.comments}
-                    onChange={handleDeliveryChange}
-                    placeholder="Дополнительные пожелания"
-                  />
-                </div>
-              </div>
-            )}
-            <button className="submit-order" onClick={sendOrderToServer}>
-              Оформить заказ
-            </button>
-            <button className="close-cart" onClick={handleCartClose}>
-              Закрыть корзину
-            </button>
-          </div>
+
+      <Cart cartItems={cartItems} onClick={handleCartOpen} />
+
+{isCartOpen && (
+  <div className={`order-page ${isCartOpen ? "open" : ""}`}>
+    {cartItems.length === 0 ? (
+      <div className="empty-cart">
+        <p>Корзина пуста</p>
+        <button className="close-cart" onClick={handleCartClose}>
+          Закрыть
+        </button>
+      </div>
+    ) : (
+      <>
+        <div className="button-group">
+          <button
+            className={`button_buy ${!isOrderSection ? "active" : ""}`}
+            onClick={() => setIsOrderSection(false)}
+          >
+            Доставка
+          </button>
+          <button
+            className={`button_buy ${isOrderSection ? "active" : ""}`}
+            onClick={() => setIsOrderSection(true)}
+          >
+            С собой
+          </button>
         </div>
-      )}
+        <div className="items-section">
+          {cartItems.map((item) => {
+            const price = item.price || 0;
+            const discountedPrice = calculateDiscountedPrice(price).toFixed(2);
+            return (
+              <div key={item.id} className="order-item">
+                <img
+                  src={getImageUrl(item.image)}
+                  alt={item.name}
+                  onError={(e) => (e.target.src = jpgPlaceholder)}
+                />
+                <div className="order-item-info">
+                  <h3>{item.name || "Без названия"}</h3>
+                  {item.extraIngredients?.length > 0 && (
+                    <p>
+                      Доп: {item.extraIngredients.map((i) => i.name).join(", ")}
+                    </p>
+                  )}
+                  {discount > 0 ? (
+                    <>
+                      <p className="original-price">{price.toFixed(2)} сом</p>
+                      <p className="discounted-price">{discountedPrice} сом</p>
+                    </>
+                  ) : (
+                    <p>{price.toFixed(2)} сом</p>
+                  )}
+                  <div className="ad_more">
+                    <button
+                      className="quantity-button"
+                      onClick={() => handleQuantityChange(item.id, -1)}
+                    >
+                      -
+                    </button>
+                    <span className="quantity-display">{item.quantity || 0}</span>
+                    <button
+                      className="quantity-button"
+                      onClick={() => handleQuantityChange(item.id, 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="order-details">
+          <div className="total-section">
+            <h3 className="total-price">
+              Итого:
+              {discount > 0 ? (
+                <>
+                  <span className="original-total-price">
+                    {calculateTotal().total} сом
+                  </span>
+                  <span className="discounted-total-price">
+                    {calculateTotal().discountedTotal} сом
+                  </span>
+                </>
+              ) : (
+                `${calculateTotal().total} сом`
+              )}
+            </h3>
+          </div>
+          <div className="promo-section">
+            <label htmlFor="promo-code">Промокод:</label>
+            <input
+              type="text"
+              id="promo-code"
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+            />
+            <button onClick={handlePromoCodeSubmit}>Применить</button>
+          </div>
+          {isOrderSection ? (
+            <div className="order-form">
+              <h3>Данные для заказа (с собой)</h3>
+              <div className="form-group">
+                <label htmlFor="pickup-name">Имя:</label>
+                <input
+                  type="text"
+                  id="pickup-name"
+                  name="name"
+                  value={orderDetails.name}
+                  onChange={handleOrderChange}
+                  placeholder="Введите ваше имя"
+                />
+                {formErrors.name && <p className="error">{formErrors.name}</p>}
+              </div>
+              <div className="form-group">
+                <label htmlFor="pickup-phone">Телефон:</label>
+                <input
+                  type="text"
+                  id="pickup-phone"
+                  name="phone"
+                  value={orderDetails.phone}
+                  onChange={handleOrderChange}
+                  placeholder="+996123456789"
+                />
+                {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+              </div>
+              <div className="form-group">
+                <label htmlFor="pickup-comments">Комментарии:</label>
+                <textarea
+                  id="pickup-comments"
+                  name="comments"
+                  value={orderDetails.comments}
+                  onChange={handleOrderChange}
+                  placeholder="Дополнительные пожелания"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="order-form">
+              <h3>Данные для доставки</h3>
+              <div className="form-group">
+                <label htmlFor="delivery-name">Имя:</label>
+                <input
+                  type="text"
+                  id="delivery-name"
+                  name="name"
+                  value={deliveryDetails.name}
+                  onChange={handleDeliveryChange}
+                  placeholder="Введите ваше имя"
+                />
+                {formErrors.name && <p className="error">{formErrors.name}</p>}
+              </div>
+              <div className="form-group">
+                <label htmlFor="delivery-phone">Телефон:</label>
+                <input
+                  type="text"
+                  id="delivery-phone"
+                  name="phone"
+                  value={deliveryDetails.phone}
+                  onChange={handleDeliveryChange}
+                  placeholder="+996123456789"
+                />
+                {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+              </div>
+              <div className="form-group">
+                <label htmlFor="delivery-address">Адрес:</label>
+                <input
+                  type="text"
+                  id="delivery-address"
+                  name="address"
+                  value={deliveryDetails.address}
+                  onChange={handleDeliveryChange}
+                  placeholder="Введите адрес доставки"
+                />
+                {formErrors.address && (
+                  <p className="error">{formErrors.address}</p>
+                )}
+              </div>
+              <div className="form-group">
+                <label htmlFor="delivery-comments">Комментарии:</label>
+                <textarea
+                  id="delivery-comments"
+                  name="comments"
+                  value={deliveryDetails.comments}
+                  onChange={handleDeliveryChange}
+                  placeholder="Дополнительные пожелания"
+                />
+              </div>
+            </div>
+          )}
+          <button className="submit-order" onClick={sendOrderToServer}>
+            Оформить заказ
+          </button>
+          <button className="close-cart" onClick={handleCartClose}>
+            Закрыть корзину
+          </button>
+        </div>
+      </>
+    )}
+  </div>
+)}
 
       {isOrderSent && (
         <div className="order-confirmation">

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import "../styles/AdminPanel.css";
 
 function AdminPanel() {
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState([]);
   const [name, setName] = useState("");
@@ -60,10 +59,9 @@ function AdminPanel() {
   const navigate = useNavigate();
   const baseURL = "https://nukesul-brepb-651f.twc1.net";
 
-  // Функция для формирования URL изображения через бэкенд
   const getImageUrl = (imageKey) => {
     if (!imageKey) return "https://via.placeholder.com/150?text=Image+Not+Found";
-    const key = imageKey.split("/").pop(); // Извлекаем только имя файла (например, 174359528337.jpg)
+    const key = imageKey.split("/").pop();
     return `${baseURL}/product-image/${key}`;
   };
 
@@ -574,18 +572,6 @@ function AdminPanel() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("description", description);
-    formData.append("branchId", selectedBranch);
-    formData.append("categoryId", categoryId);
-    formData.append("subCategoryId", subCategoryId || "");
-    formData.append("priceSmall", priceSmall || "");
-    formData.append("priceMedium", priceMedium || "");
-    formData.append("priceLarge", priceLarge || "");
-    formData.append("priceSingle", priceSingle || "");
-    if (image) formData.append("image", image);
-
     if (!name) {
       alert("Введите название продукта!");
       setIsSubmitting(false);
@@ -597,21 +583,35 @@ function AdminPanel() {
       return;
     }
 
-    if (priceFieldsCount >= 1 && !priceSmall && !editMode) {
-      alert("Укажите цену для маленького размера!");
+    // Проверяем, что хотя бы одна цена указана
+    const hasAnyPrice =
+      priceFieldsCount === 1
+        ? priceSingle
+        : priceSmall || priceMedium || priceLarge;
+    if (!hasAnyPrice && !editMode) {
+      alert("Укажите хотя бы одну цену!");
       setIsSubmitting(false);
       return;
     }
-    if (priceFieldsCount >= 2 && !priceMedium && !editMode) {
-      alert("Укажите цену для среднего размера!");
-      setIsSubmitting(false);
-      return;
+
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("description", description);
+    formData.append("branchId", selectedBranch);
+    formData.append("categoryId", categoryId);
+    formData.append("subCategoryId", subCategoryId || "");
+    if (priceFieldsCount === 1) {
+      formData.append("priceSingle", priceSingle || "");
+      formData.append("priceSmall", "");
+      formData.append("priceMedium", "");
+      formData.append("priceLarge", "");
+    } else {
+      formData.append("priceSingle", "");
+      formData.append("priceSmall", priceSmall || "");
+      formData.append("priceMedium", priceMedium || "");
+      formData.append("priceLarge", priceLarge || "");
     }
-    if (priceFieldsCount >= 3 && !priceLarge && !editMode) {
-      alert("Укажите цену для большого размера!");
-      setIsSubmitting(false);
-      return;
-    }
+    if (image) formData.append("image", image);
 
     if (!image && !editMode) {
       alert("Загрузите изображение!");
@@ -646,7 +646,6 @@ function AdminPanel() {
         setProducts((prev) => [...prev, newProduct]);
         alert("Продукт добавлен!");
       }
-      // Обновляем imagePreview, чтобы он указывал на URL через бэкенд
       setImagePreview(getImageUrl(newProduct.image));
       resetFormFields();
       setEditMode(false);
@@ -719,7 +718,6 @@ function AdminPanel() {
     setPriceLarge(product.price_large || "");
     setPriceSingle(product.price_single || "");
     setImage(null);
-    // Устанавливаем imagePreview как URL через бэкенд
     setImagePreview(getImageUrl(product.image));
 
     let count = 0;
@@ -793,6 +791,7 @@ function AdminPanel() {
             <option value={2}>2 размера</option>
             <option value={3}>3 размера</option>
           </select>
+          <small>Укажите хотя бы одну цену</small>
         </div>
         {priceFieldsCount === 1 && (
           <div>
@@ -807,7 +806,7 @@ function AdminPanel() {
         )}
         {priceFieldsCount >= 1 && priceFieldsCount > 1 && (
           <div>
-            <label>Маленькая (сом):</label>
+            <label>Маленький (сом):</label>
             <input
               type="number"
               value={priceSmall}
@@ -818,7 +817,7 @@ function AdminPanel() {
         )}
         {priceFieldsCount >= 2 && (
           <div>
-            <label>Средняя (сом):</label>
+            <label>Средний (сом):</label>
             <input
               type="number"
               value={priceMedium}
@@ -829,7 +828,7 @@ function AdminPanel() {
         )}
         {priceFieldsCount >= 3 && (
           <div>
-            <label>Большая (сом):</label>
+            <label>Большой (сом):</label>
             <input
               type="number"
               value={priceLarge}
@@ -1037,7 +1036,7 @@ function AdminPanel() {
           </thead>
           <tbody>
             {categories.map((cat) => (
-              <tr key={cat.id}>
+              < tr key={cat.id}>
                 <td>{cat.name}</td>
                 <td>
                   <button
@@ -1191,112 +1190,114 @@ function AdminPanel() {
         <h2>{categoryName}</h2>
         <div className="product-cards">
           {filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => (
-              <div key={product.id} className="product-card">
-                {product.image ? (
-                  <img
-                    src={getImageUrl(product.image)} // Используем getImageUrl для формирования URL
-                    alt={product.name}
-                    className="product-image"
-                    onError={(e) => {
-                      e.target.src =
-                        "https://via.placeholder.com/150?text=Image+Not+Found";
-                    }}
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="no-image">Изображение отсутствует</div>
-                )}
-                <h3>{product.name}</h3>
-                <p>{product.description || "Нет описания"}</p>
-                {product.effective_discount > 0 && (
-                  <p className="discount">
-                    Скидка: {product.effective_discount}%
-                  </p>
-                )}
-                {product.price_small ||
-                product.price_medium ||
-                product.price_large ? (
-                  <div className="price-list">
-                    {product.price_small && (
-                      <p>
-                        Маленькая:{" "}
-                        {product.effective_discount > 0 ? (
-                          <>
-                            <span className="old-price">
-                              {product.price_small} сом
-                            </span>{" "}
-                            {product.final_price_small.toFixed(2)} сом
-                          </>
-                        ) : (
-                          `${product.price_small} сом`
-                        )}
-                      </p>
-                    )}
-                    {product.price_medium && (
-                      <p>
-                        Средняя:{" "}
-                        {product.effective_discount > 0 ? (
-                          <>
-                            <span className="old-price">
-                              {product.price_medium} сом
-                            </span>{" "}
-                            {product.final_price_medium.toFixed(2)} сом
-                          </>
-                        ) : (
-                          `${product.price_medium} сом`
-                        )}
-                      </p>
-                    )}
-                    {product.price_large && (
-                      <p>
-                        Большая:{" "}
-                        {product.effective_discount > 0 ? (
-                          <>
-                            <span className="old-price">
-                              {product.price_large} сом
-                            </span>{" "}
-                            {product.final_price_large.toFixed(2)} сом
-                          </>
-                        ) : (
-                          `${product.price_large} сом`
-                        )}
-                      </p>
-                    )}
+            filteredProducts.map((product) => {
+              const hasMultipleSizes =
+                product.price_small || product.price_medium || product.price_large;
+              return (
+                <div key={product.id} className="product-card">
+                  {product.image ? (
+                    <img
+                      src={getImageUrl(product.image)}
+                      alt={product.name}
+                      className="product-image"
+                      onError={(e) => {
+                        e.target.src =
+                          "https://via.placeholder.com/150?text=Image+Not+Found";
+                      }}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="no-image">Изображение отсутствует</div>
+                  )}
+                  <h3>{product.name}</h3>
+                  <p>{product.description || "Нет описания"}</p>
+                  {product.effective_discount > 0 && (
+                    <p className="discount">
+                      Скидка: {product.effective_discount}%
+                    </p>
+                  )}
+                  {hasMultipleSizes ? (
+                    <div className="price-list">
+                      {product.price_small && (
+                        <p>
+                          Маленький:{" "}
+                          {product.effective_discount > 0 ? (
+                            <>
+                              <span className="old-price">
+                                {product.price_small} сом
+                              </span>{" "}
+                              {product.final_price_small.toFixed(2)} сом
+                            </>
+                          ) : (
+                            `${product.price_small} сом`
+                          )}
+                        </p>
+                      )}
+                      {product.price_medium && (
+                        <p>
+                          Средний:{" "}
+                          {product.effective_discount > 0 ? (
+                            <>
+                              <span className="old-price">
+                                {product.price_medium} сом
+                              </span>{" "}
+                              {product.final_price_medium.toFixed(2)} сом
+                            </>
+                          ) : (
+                            `${product.price_medium} сом`
+                          )}
+                        </p>
+                      )}
+                      {product.price_large && (
+                        <p>
+                          Большой:{" "}
+                          {product.effective_discount > 0 ? (
+                            <>
+                              <span className="old-price">
+                                {product.price_large} сом
+                              </span>{" "}
+                              {product.final_price_large.toFixed(2)} сом
+                            </>
+                          ) : (
+                            `${product.price_large} сом`
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  ) : product.price_single ? (
+                    <p>
+                      Цена:{" "}
+                      {product.effective_discount > 0 ? (
+                        <>
+                          <span className="old-price">
+                            {product.price_single} сом
+                          </span>{" "}
+                          {product.final_price_single.toFixed(2)} сом
+                        </>
+                      ) : (
+                        `${product.price_single} сом`
+                      )}
+                    </p>
+                  ) : (
+                    <p>Цена не указана</p>
+                  )}
+                  <div className="product-buttons">
+                    <button
+                      className="edit-button"
+                      onClick={() => handleEdit(product)}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      className="delete-button"
+                      onClick={() => handleDelete(product.id)}
+                    >
+                      Удалить
+                    </button>
                   </div>
-                ) : product.price_single ? (
-                  <p>
-                    Цена:{" "}
-                    {product.effective_discount > 0 ? (
-                      <>
-                        <span className="old-price">
-                          {product.price_single} сом
-                        </span>{" "}
-                        {product.final_price_single.toFixed(2)} сом
-                      </>
-                    ) : (
-                      `${product.price_single} сом`
-                    )}
-                  </p>
-                ) : (
-                  <p>Цена не указана</p>
-                )}
-                <div className="product-buttons">
-                  <button
-                    className="edit-button"
-                    onClick={() => handleEdit(product)}
-                  >
-                    Редактировать
-                  </button>
-                  <button
-                    className="delete-button"
-                    onClick={() => handleDelete(product.id)}
-                  >
-                    Удалить
-                  </button>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <p>Товаров в этой категории нет</p>
           )}

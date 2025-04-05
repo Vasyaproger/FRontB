@@ -22,6 +22,8 @@ body {
   overflow-x: hidden;
 }
 
+
+
 /* Шапка */
 .header {
   display: flex;
@@ -789,12 +791,10 @@ h2::after {
   opacity: 1;
   transition: opacity 0.3s ease;
 }
-
-.order-page.hidden {
-  opacity: 0;
-  pointer-events: none;
+.order-page.open {
+  display: flex; /* Показываем, когда добавлен класс .open */
+  opacity: 1; /* Полная видимость при открытии */
 }
-
 .button-group {
   display: flex;
   gap: 16px;
