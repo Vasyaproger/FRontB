@@ -6,8 +6,7 @@ import { useSwipeable } from "react-swipeable";
 import "../styles/OrderPage.css";
 import LazyImage from "./LazyImage";
 import jpgPlaceholder from "../images/cat.jpg";
-import { useNavigate } from "react-router-dom";
-import { FiSearch, FiFilter } from "react-icons/fi";
+import { FiSearch } from "react-icons/fi";
 
 function Products() {
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -31,7 +30,6 @@ function Products() {
   const [progress, setProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPrice, setFilterPrice] = useState(null);
-  const [extraIngredients, setExtraIngredients] = useState([]);
   const storyTimerRef = useRef(null);
   const [orderDetails, setOrderDetails] = useState({
     name: "",
@@ -55,14 +53,12 @@ function Products() {
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(
     !localStorage.getItem("selectedBranch")
   );
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [orderHistory, setOrderHistory] = useState([]);
   const [stories, setStories] = useState([]);
   const modalRef = useRef(null);
   const menuRef = useRef(null);
   const sectionRefs = useRef({});
-  const navigate = useNavigate();
   const baseURL = "https://nukesul-brepb-651f.twc1.net";
 
   const categoryEmojis = {
@@ -135,7 +131,6 @@ function Products() {
   ];
 
   const fetchBranches = async () => {
-    setIsLoading(true);
     setError(null);
     try {
       const response = await fetch(`${baseURL}/api/public/branches`);
@@ -164,14 +159,11 @@ function Products() {
       console.error("Ошибка при загрузке филиалов:", error);
       setError("Не удалось загрузить филиалы: " + error.message);
       setBranches([]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const fetchProducts = async () => {
     if (!selectedBranch) return;
-    setIsLoading(true);
     try {
       const response = await fetch(
         `${baseURL}/api/public/branches/${selectedBranch}/products`
@@ -207,13 +199,10 @@ function Products() {
       setError("Не удалось загрузить продукты: " + error.message);
       setProducts([]);
       setMenuItems({});
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const fetchStories = async () => {
-    setIsLoading(true);
     try {
       const response = await fetch(`${baseURL}/api/public/stories`);
       if (!response.ok) {
@@ -224,8 +213,6 @@ function Products() {
     } catch (error) {
       console.error("Ошибка при загрузке историй:", error);
       setError("Не удалось загрузить истории: " + error.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -353,19 +340,16 @@ function Products() {
   });
 
   const handleCartOpen = () => {
-    console.log("Открываем корзину");
     setIsCartOpen(true);
   };
 
   const handleCartClose = () => {
-    console.log("Закрываем корзину");
     setIsCartOpen(false);
   };
 
   const handleProductClick = (product, category) => {
     setSelectedProduct({ product, category });
     if (category !== "Пиццы") setPizzaSize(null);
-    setExtraIngredients([]);
     setIsProductModalOpen(true);
   };
 
@@ -386,11 +370,6 @@ function Products() {
         throw new Error("Выберите размер пиццы перед добавлением в корзину.");
       }
 
-      const extraIngredientsPrice = extraIngredients.reduce(
-        (total, ingredient) => total + (ingredient.price || 0),
-        0
-      );
-
       const itemToAdd = {
         id: isPizza(selectedProduct.product)
           ? `${selectedProduct.product.id}-${pizzaSize}`
@@ -399,22 +378,20 @@ function Products() {
           ? `${selectedProduct.product.name} (${pizzaSize})`
           : selectedProduct.product.name,
         price:
-          (isPizza(selectedProduct.product) && pizzaSize
-            ? selectedProduct.product[`price_${pizzaSize.toLowerCase()}`]
-            : selectedProduct.product.price_single ||
-              selectedProduct.product.price ||
-              0) + extraIngredientsPrice,
+          isPizza(selectedProduct.product) && pizzaSize
+            ? Number(selectedProduct.product[`price_${pizzaSize.toLowerCase()}`])
+            : Number(
+                selectedProduct.product.price_single ||
+                  selectedProduct.product.price ||
+                  0
+              ),
         quantity: 1,
         image: selectedProduct.product.image_url,
-        extraIngredients: extraIngredients,
       };
 
       setCartItems((prevItems) => {
         const existingItemIndex = prevItems.findIndex(
-          (item) =>
-            item.id === itemToAdd.id &&
-            JSON.stringify(item.extraIngredients) ===
-              JSON.stringify(itemToAdd.extraIngredients)
+          (item) => item.id === itemToAdd.id
         );
 
         if (existingItemIndex > -1) {
@@ -469,7 +446,7 @@ function Products() {
         throw new Error(errorData.message || "Неверный промокод");
       }
       const data = await response.json();
-      setDiscount(data.discount || 0);
+      setDiscount(Number(data.discount) || 0);
       alert(`Промокод применен! Скидка ${data.discount}% добавлена.`);
     } catch (error) {
       console.error("Ошибка проверки промокода:", error);
@@ -510,33 +487,33 @@ function Products() {
     if (!validateFields()) return;
     try {
       const cartItemsWithPrices = cartItems.map((item) => ({
-        id: item.id,
         name: item.name,
         quantity: item.quantity,
-        originalPrice: item.price || 0,
-        discountedPrice: calculateDiscountedPrice(item.price || 0),
-        extraIngredients: item.extraIngredients,
+        originalPrice: Number(item.price) || 0,
       }));
 
-      const response = await fetch(`${baseURL}/api/public/send-order`, {
+      const orderPayload = {
+        orderDetails: isOrderSection ? orderDetails : {},
+        deliveryDetails: !isOrderSection ? deliveryDetails : {},
+        cartItems: cartItemsWithPrices,
+        discount: discount || 0,
+        promoCode: promoCode || "",
+      };
+
+      const response = await fetch(`${baseURL}/api/send-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderDetails: isOrderSection ? orderDetails : {},
-          deliveryDetails: !isOrderSection ? deliveryDetails : {},
-          cartItems: cartItemsWithPrices,
-          discount,
-          promoCode,
-          branchId: selectedBranch,
-          orderType: isOrderSection ? "pickup" : "delivery",
-        }),
+        body: JSON.stringify(orderPayload),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Ошибка при отправке заказа");
+        throw new Error(
+          errorData.message || `Ошибка сервера: ${response.status}`
+        );
       }
 
+      const result = await response.json();
       setIsOrderSent(true);
       setCartItems([]);
       localStorage.removeItem("cartItems");
@@ -548,18 +525,18 @@ function Products() {
       fetchOrderHistory();
     } catch (error) {
       console.error("Ошибка при отправке заказа:", error);
-      alert(error.message || "Ошибка при отправке заказа.");
+      alert(error.message || "Произошла ошибка при отправке заказа");
     }
   };
 
   const calculateDiscountedPrice = (price) => {
-    const validPrice = price || 0;
+    const validPrice = Number(price) || 0;
     return validPrice * (1 - discount / 100);
   };
 
   const calculateTotal = () => {
     const total = cartItems.reduce((sum, item) => {
-      const price = item.price || 0;
+      const price = Number(item.price) || 0;
       return sum + price * item.quantity;
     }, 0);
     const discountedTotal = total * (1 - discount / 100);
@@ -627,7 +604,6 @@ function Products() {
 
   const fetchOrderHistory = async () => {
     if (!selectedBranch) return;
-    setIsLoading(true);
     try {
       const response = await fetch(
         `${baseURL}/api/public/branches/${selectedBranch}/orders`
@@ -641,8 +617,6 @@ function Products() {
     } catch (error) {
       console.error("Ошибка при загрузке истории заказов:", error);
       setError("Не удалось загрузить историю заказов: " + error.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -652,8 +626,10 @@ function Products() {
       .includes(searchQuery.toLowerCase());
     const matchesPrice =
       !filterPrice ||
-      (product.price_single || product.price_small || product.price || 0) <=
-        filterPrice;
+      (Number(product.price_single) ||
+        Number(product.price_small) ||
+        Number(product.price) ||
+        0) <= filterPrice;
     return matchesSearch && matchesPrice;
   });
 
@@ -676,11 +652,6 @@ function Products() {
 
   return (
     <div className="menu-wrapper">
-      {isLoading && (
-        <div className="loading-overlay">
-          <div className="spinner">Загрузка...</div>
-        </div>
-      )}
       {error && <div className="error-message">{error}</div>}
 
       {isBranchModalOpen && (
@@ -729,9 +700,6 @@ function Products() {
       )}
 
       <header className="header">
-        <div className="header-left">
-          <h1 className="logo">Boodai Pizza</h1>
-        </div>
         <div className="header-right">
           <div className="search-bar">
             <FiSearch className="search-icon" />
@@ -897,11 +865,12 @@ function Products() {
                         <div className="best-seller-product-price">
                           {isPizza(product) ? (
                             <p className="best-sellers_price_p">
-                              {product.price_small} - {product.price_large} Сом
+                              от {Number(product.price_small)} -{" "}
+                              {Number(product.price_large)} сом
                             </p>
                           ) : product.price_single ? (
                             <p className="best-sellers_price_p">
-                              Цена: {product.price_single} Сом
+                              {Number(product.price_single)} сом
                             </p>
                           ) : (
                             <p className="best-sellers_price_p">
@@ -909,6 +878,18 @@ function Products() {
                             </p>
                           )}
                         </div>
+                        <button
+                          className="add-to-cart-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProductClick(
+                              product,
+                              "Часто продаваемые товары"
+                            );
+                          }}
+                        >
+                          Добавить
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -916,16 +897,16 @@ function Products() {
 
               <div className="halal_box">
                 <img className="halal_img" src={halal} alt="Halal" />
-                <h1 className="halal_title">
-                  Без свинины
+                <div>
+                  <h1 className="halal_title">Халяль</h1>
                   <p className="halal_subtitle">
-                    Мы готовим из цыпленка и говядины
+                    Всё приготовлено по стандартам
                   </p>
-                </h1>
+                </div>
               </div>
 
-              <div className="option__container">
-                <div className="option__name" ref={menuRef}>
+              <div className="option__container" ref={menuRef}>
+                <div className="option__name">
                   <ul>
                     {Object.entries(sortedFilteredCategories).map(
                       ([category]) =>
@@ -987,7 +968,7 @@ function Products() {
                             if (prices.length > 0) {
                               const minPrice = Math.min(...prices);
                               const maxPrice = Math.max(...prices);
-                              priceRange = `от ${minPrice} - ${maxPrice} Сом`;
+                              priceRange = `от ${minPrice} - ${maxPrice} сом`;
                             } else {
                               priceRange = "Цена не указана";
                             }
@@ -1011,17 +992,17 @@ function Products() {
                                 <h3 className="menu-product-title">
                                   {product.name}
                                 </h3>
+                                <p className="menu-product-description">
+                                  {product.description}
+                                </p>
                                 <p className="menu-product-price">
                                   {hasMultipleSizes
                                     ? priceRange
                                     : `${
-                                        product.price_single ||
-                                        product.price ||
+                                        Number(product.price_single) ||
+                                        Number(product.price) ||
                                         0
-                                      } Сом`}
-                                </p>
-                                <p className="menu-product-description">
-                                  {product.description}
+                                      } сом`}
                                 </p>
                               </div>
                             </div>
@@ -1039,7 +1020,7 @@ function Products() {
                     {orderHistory.map((order) => (
                       <div key={order.id} className="history-item">
                         <p>Заказ #{order.id}</p>
-                        <p>Сумма: {order.total} Сом</p>
+                        <p>Сумма: {Number(order.total).toFixed(2)} сом</p>
                         <p>
                           Дата: {new Date(order.created_at).toLocaleString()}
                         </p>
@@ -1067,10 +1048,6 @@ function Products() {
             className="modal-content"
             style={{
               transform: `translateY(${modalPosition}px)`,
-              transition: isModalClosing
-                ? "transform 0.3s ease, opacity 0.3s ease"
-                : "none",
-              opacity: isModalClosing ? 0 : 1,
             }}
           >
             <button className="close-modal" onClick={closeProductModal}>
@@ -1090,76 +1067,41 @@ function Products() {
                   <div className="pizza-selection">
                     <h3>Выберите размер:</h3>
                     <div className="pizza-sizes">
-                      <div
+                      <button
                         className={`pizza-size ${
                           pizzaSize === "small" ? "selected" : ""
                         }`}
                         onClick={() => setPizzaSize("small")}
                       >
-                        Маленькая
-                      </div>
-                      <div
+                        Маленькая ({selectedProduct.product.price_small} сом)
+                      </button>
+                      <button
                         className={`pizza-size ${
                           pizzaSize === "medium" ? "selected" : ""
                         }`}
                         onClick={() => setPizzaSize("medium")}
                       >
-                        Средняя
-                      </div>
-                      <div
+                        Средняя ({selectedProduct.product.price_medium} сом)
+                      </button>
+                      <button
                         className={`pizza-size ${
                           pizzaSize === "large" ? "selected" : ""
                         }`}
                         onClick={() => setPizzaSize("large")}
                       >
-                        Большая
-                      </div>
+                        Большая ({selectedProduct.product.price_large} сом)
+                      </button>
                     </div>
                   </div>
                 )}
-                <div className="extra-ingredients">
-                  <h3>Дополнительные ингредиенты:</h3>
-                  <div className="ingredients-list">
-                    {[
-                      { name: "Сыр", price: 50 },
-                      { name: "Соус", price: 30 },
-                      { name: "Оливки", price: 40 },
-                    ].map((ingredient) => (
-                      <label key={ingredient.name}>
-                        <input
-                          type="checkbox"
-                          checked={extraIngredients.some(
-                            (i) => i.name === ingredient.name
-                          )}
-                          onChange={() => {
-                            setExtraIngredients((prev) =>
-                              prev.some((i) => i.name === ingredient.name)
-                                ? prev.filter((i) => i.name !== ingredient.name)
-                                : [...prev, ingredient]
-                            );
-                          }}
-                        />
-                        {ingredient.name} (+{ingredient.price} сом)
-                      </label>
-                    ))}
-                  </div>
-                </div>
                 <button className="add-to-cart" onClick={handleAddToCart}>
                   Добавить в корзину за{" "}
-                  <span className="green-price">
-                    {(isPizza(selectedProduct.product) && pizzaSize
-                      ? selectedProduct.product[
-                          `price_${pizzaSize.toLowerCase()}`
-                        ]
-                      : selectedProduct.product.price_single ||
-                        selectedProduct.product.price ||
-                        0) +
-                      extraIngredients.reduce(
-                        (total, ingredient) => total + (ingredient.price || 0),
-                        0
-                      )}
-                  </span>{" "}
-                  Сом
+                  {isPizza(selectedProduct.product) && pizzaSize
+                    ? selectedProduct.product[`price_${pizzaSize.toLowerCase()}`]
+                    : selectedProduct.product.price_single ||
+                      selectedProduct.product.price ||
+                      0}{" "}
+                  сом
                 </button>
                 {errorMessage && (
                   <div className="error-message">
@@ -1201,10 +1143,8 @@ function Products() {
               </div>
               <div className="items-section">
                 {cartItems.map((item) => {
-                  const price = item.price || 0;
-                  const discountedPrice = calculateDiscountedPrice(
-                    price
-                  ).toFixed(2);
+                  const price = Number(item.price) || 0;
+                  const discountedPrice = calculateDiscountedPrice(price).toFixed(2);
                   return (
                     <div key={item.id} className="order-item">
                       <img
@@ -1214,12 +1154,6 @@ function Products() {
                       />
                       <div className="order-item-info">
                         <h3>{item.name || "Без названия"}</h3>
-                        {item.extraIngredients?.length > 0 && (
-                          <p>
-                            Доп:{" "}
-                            {item.extraIngredients.map((i) => i.name).join(", ")}
-                          </p>
-                        )}
                         {discount > 0 ? (
                           <>
                             <p className="original-price">
