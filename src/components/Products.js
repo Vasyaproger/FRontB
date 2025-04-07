@@ -484,12 +484,18 @@ function Products() {
       alert("Ваша корзина пуста. Добавьте товары перед оформлением заказа.");
       return;
     }
+    if (!selectedBranch) {
+      alert("Пожалуйста, выберите филиал перед оформлением заказа.");
+      return;
+    }
     if (!validateFields()) return;
+
     try {
       const cartItemsWithPrices = cartItems.map((item) => ({
         name: item.name,
         quantity: item.quantity,
         originalPrice: Number(item.price) || 0,
+        discountedPrice: calculateDiscountedPrice(item.price),
       }));
 
       const orderPayload = {
@@ -498,9 +504,12 @@ function Products() {
         cartItems: cartItemsWithPrices,
         discount: discount || 0,
         promoCode: promoCode || "",
+        branchId: parseInt(selectedBranch), // Добавляем branchId
       };
 
-      const response = await fetch(`${baseURL}/api/send-order`, {
+      console.log("Отправляемые данные:", orderPayload); // Для отладки
+
+      const response = await fetch(`${baseURL}/api/public/send-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderPayload),
@@ -508,9 +517,7 @@ function Products() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(
-          errorData.message || `Ошибка сервера: ${response.status}`
-        );
+        throw new Error(errorData.error || `Ошибка сервера: ${response.status}`);
       }
 
       const result = await response.json();
