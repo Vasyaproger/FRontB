@@ -1,26 +1,26 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import debounce from "lodash/debounce";
 import Cart from "./Cart";
 import "../styles/Products.css";
 import halal from "../images/halal_png.png";
 import { useSwipeable } from "react-swipeable";
-import "../styles/OrderPage.css";
 import LazyImage from "./LazyImage";
 import jpgPlaceholder from "../images/cat.jpg";
-import { FiSearch } from "react-icons/fi";
+import { FiSearch, FiX, FiShoppingCart, FiChevronDown } from "react-icons/fi";
 
 function Products() {
+  // Состояния
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [products, setProducts] = useState([]);
   const [menuItems, setMenuItems] = useState({});
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [pizzaSize, setPizzaSize] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [selectedTasteVariant, setSelectedTasteVariant] = useState(null);
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
     return savedCart ? JSON.parse(savedCart) : [];
   });
   const [errorMessage, setErrorMessage] = useState("");
-  const [isModalClosing, setIsModalClosing] = useState(false);
-  const [modalPosition, setModalPosition] = useState(0);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("");
   const [isOrderSection, setIsOrderSection] = useState(false);
@@ -30,29 +30,18 @@ function Products() {
   const [progress, setProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPrice, setFilterPrice] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const storyTimerRef = useRef(null);
-  const [orderDetails, setOrderDetails] = useState({
-    name: "",
-    phone: "",
-    comments: "",
-  });
-  const [deliveryDetails, setDeliveryDetails] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    comments: "",
-  });
+  const [orderDetails, setOrderDetails] = useState({ name: "", phone: "", comments: "" });
+  const [deliveryDetails, setDeliveryDetails] = useState({ name: "", phone: "", address: "", comments: "" });
   const [isOrderSent, setIsOrderSent] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [formErrors, setFormErrors] = useState({});
   const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState(() => {
-    return localStorage.getItem("selectedBranch") || null;
-  });
-  const [isBranchModalOpen, setIsBranchModalOpen] = useState(
-    !localStorage.getItem("selectedBranch")
-  );
+  const [selectedBranch, setSelectedBranch] = useState(() => localStorage.getItem("selectedBranch") || null);
+  const [isBranchModalOpen, setIsBranchModalOpen] = useState(!localStorage.getItem("selectedBranch"));
   const [error, setError] = useState(null);
   const [orderHistory, setOrderHistory] = useState([]);
   const [stories, setStories] = useState([]);
@@ -60,7 +49,9 @@ function Products() {
   const menuRef = useRef(null);
   const sectionRefs = useRef({});
   const baseURL = "https://nukesul-brepb-651f.twc1.net";
+  const [imageErrors, setImageErrors] = useState({});
 
+  // Эмодзи для категорий
   const categoryEmojis = {
     Пиццы: "🍕",
     Половинка_Пиццы: "🍕",
@@ -96,147 +87,124 @@ function Products() {
     Кофе: "☕",
   };
 
+  // Приоритет категорий
   const priority = [
-    "Пиццы",
-    "Половинка_Пиццы",
-    "Комбо",
-    "Сет",
-    "Бургеры",
-    "Шаурмы",
-    "Суши",
-    "Плов",
-    "Десерты",
-    "Блинчики",
-    "Закуски",
-    "Восточная_кухня",
-    "Европейская_кухня",
-    "Стейки_и_горячие_блюда",
-    "Горячие_блюда",
-    "Супы",
-    "Манты",
-    "Вок",
-    "Гарниры",
-    "Закуски_и_гарниры",
-    "Завтраки",
-    "Детское_меню",
-    "Салаты",
-    "Соусы",
-    "Хлеб",
-    "Горячие_напитки",
-    "Напитки",
-    "Лимонады",
-    "Коктейли",
-    "Бабл_ти",
-    "Кофе",
+    "Пиццы", "Половинка_Пиццы", "Комбо", "Сет", "Бургеры", "Шаурмы", "Суши", "Плов", "Десерты", "Блинчики",
+    "Закуски", "Восточная_кухня", "Европейская_кухня", "Стейки_и_горячие_блюда", "Горячие_блюда", "Супы",
+    "Манты", "Вок", "Гарниры", "Закуски_и_гарниры", "Завтраки", "Детское_меню", "Салаты", "Соусы", "Хлеб",
+    "Горячие_напитки", "Напитки", "Лимонады", "Коктейли", "Бабл_ти", "Кофе",
   ];
 
-  const fetchBranches = async () => {
+  // Функции для работы с API
+  const fetchBranches = useCallback(async () => {
+    setIsLoading(true);
     setError(null);
     try {
       const response = await fetch(`${baseURL}/api/public/branches`);
-      if (!response.ok) {
-        throw new Error(`Ошибка при загрузке филиалов: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Ошибка загрузки филиалов: ${response.status}`);
       const data = await response.json();
-      if (!Array.isArray(data)) {
-        throw new Error("Неверный формат данных филиалов");
-      }
+      if (!Array.isArray(data)) throw new Error("Неверный формат данных о филиалах");
+      console.log("Полученные филиалы:", data); // Логирование для отладки
       setBranches(data);
       if (data.length === 0) {
         setError("Филиалы не найдены");
         setIsBranchModalOpen(true);
-        return;
-      }
-      if (
-        selectedBranch &&
-        !data.some((branch) => branch.id === parseInt(selectedBranch))
-      ) {
-        setSelectedBranch(null);
-        localStorage.removeItem("selectedBranch");
-        setIsBranchModalOpen(true);
       }
     } catch (error) {
-      console.error("Ошибка при загрузке филиалов:", error);
-      setError("Не удалось загрузить филиалы: " + error.message);
+      setError(`Не удалось загрузить филиалы: ${error.message}`);
       setBranches([]);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, []);
 
-  const fetchProducts = async () => {
-    if (!selectedBranch) return;
+  const fetchProducts = useCallback(async () => {
+    if (!selectedBranch) {
+      console.warn("Филиал не выбран, загрузка продуктов отменена");
+      return;
+    }
+    setIsLoading(true);
     try {
-      const response = await fetch(
-        `${baseURL}/api/public/branches/${selectedBranch}/products`
-      );
-      if (!response.ok) {
-        throw new Error(`Ошибка при загрузке продуктов: ${response.status}`);
-      }
+      console.log(`Загрузка продуктов для филиала: ${selectedBranch}`);
+      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/products`);
+      if (!response.ok) throw new Error(`Ошибка загрузки продуктов: ${response.status}`);
       const data = await response.json();
-      if (!Array.isArray(data)) {
-        throw new Error("Неверный формат данных продуктов");
-      }
+      console.log("Полученные данные о продуктах:", data);
+      if (!Array.isArray(data)) throw new Error("Неверный формат данных о продуктах");
       setProducts(data);
       const groupedItems = data.reduce((acc, product) => {
         acc[product.category] = acc[product.category] || [];
         acc[product.category].push(product);
         return acc;
       }, {});
-
+      console.log("Сгруппированные продукты:", groupedItems);
       const sortedCategories = Object.fromEntries(
         Object.entries(groupedItems).sort(([catA], [catB]) => {
           const indexA = priority.indexOf(catA);
           const indexB = priority.indexOf(catB);
-          return (
-            (indexA === -1 ? Infinity : indexA) -
-            (indexB === -1 ? Infinity : indexB)
-          );
+          return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
         })
       );
-
+      console.log("Отсортированные категории:", sortedCategories);
       setMenuItems(sortedCategories);
+      if (Object.keys(sortedCategories).length === 0) {
+        setError("Продукты не найдены для выбранного филиала");
+      }
     } catch (error) {
       console.error("Ошибка при загрузке продуктов:", error);
-      setError("Не удалось загрузить продукты: " + error.message);
+      setError(`Не удалось загрузить продукты: ${error.message}`);
       setProducts([]);
       setMenuItems({});
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [selectedBranch]);
 
-  const fetchStories = async () => {
+  const fetchStories = useCallback(async () => {
+    setIsLoading(true);
     try {
       const response = await fetch(`${baseURL}/api/public/stories`);
-      if (!response.ok) {
-        throw new Error(`Ошибка при загрузке историй: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Ошибка загрузки историй: ${response.status}`);
       const data = await response.json();
       setStories(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Ошибка при загрузке историй:", error);
-      setError("Не удалось загрузить истории: " + error.message);
+      setError(`Не удалось загрузить истории: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, []);
 
+  const fetchOrderHistory = useCallback(async () => {
+    if (!selectedBranch) return;
+    try {
+      const response = await fetch(`${baseURL}/api/public/branches/${selectedBranch}/orders`);
+      if (!response.ok) throw new Error(`Ошибка загрузки истории заказов: ${response.status}`);
+      const data = await response.json();
+      setOrderHistory(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setError(`Не удалось загрузить историю заказов: ${error.message}`);
+    }
+  }, [selectedBranch]);
+
+  // Инициализация данных
   useEffect(() => {
     fetchBranches();
     fetchStories();
-  }, []);
+  }, [fetchBranches, fetchStories]);
 
   useEffect(() => {
     if (selectedBranch) {
       fetchProducts();
       fetchOrderHistory();
-      const interval = setInterval(() => {
-        fetchProducts();
-        fetchOrderHistory();
-      }, 30000);
-      return () => clearInterval(interval);
     }
-  }, [selectedBranch]);
+  }, [selectedBranch, fetchProducts, fetchOrderHistory]);
 
+  // Сохранение корзины в localStorage
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
 
+  // Обработка прокрутки для активной категории
   useEffect(() => {
     const handleScroll = () => {
       let currentCategory = "";
@@ -253,30 +221,67 @@ function Products() {
         setActiveCategory(currentCategory);
       }
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, [activeCategory]);
 
   useEffect(() => {
     if (!menuRef.current || !activeCategory) return;
-    const activeItem = menuRef.current.querySelector(
-      `a[href="#${activeCategory}"]`
-    );
+    const activeItem = menuRef.current.querySelector(`a[href="#${activeCategory}"]`);
     if (activeItem) {
-      activeItem.scrollIntoView({
-        behavior: "smooth",
-        inline: "center",
-        block: "nearest",
-      });
+      activeItem.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
     }
   }, [activeCategory]);
 
+  // Блокировка прокрутки при открытии модальных окон
   useEffect(() => {
-    if (isProductModalOpen) {
-      setIsModalClosing(false);
+    if (isProductModalOpen || isCartOpen || isStoryModalOpen || isBranchModalOpen) {
+      document.body.style.overflow = "hidden";
+      modalRef.current?.focus();
+    } else {
+      document.body.style.overflow = "auto";
     }
-  }, [isProductModalOpen]);
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [isProductModalOpen, isCartOpen, isStoryModalOpen, isBranchModalOpen]);
+
+  // Закрытие модальных окон по клавише Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        if (isProductModalOpen) closeProductModal();
+        if (isCartOpen) handleCartClose();
+        if (isStoryModalOpen) closeStoryModal();
+        if (isBranchModalOpen) setIsBranchModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isProductModalOpen, isCartOpen, isStoryModalOpen, isBranchModalOpen]);
+
+  // Логика сторис
+  const startStoryTimer = useCallback(() => {
+    if (isPaused) return;
+    clearStoryTimer();
+    const duration = 5000;
+    const interval = 50;
+    const steps = duration / interval;
+    let step = 0;
+
+    storyTimerRef.current = setInterval(() => {
+      step++;
+      setProgress((step / steps) * 100);
+      if (step >= steps) goToNextStory();
+    }, interval);
+  }, [isPaused]);
+
+  const clearStoryTimer = () => {
+    if (storyTimerRef.current) {
+      clearInterval(storyTimerRef.current);
+      storyTimerRef.current = null;
+    }
+  };
 
   const openStoryModal = (index) => {
     setCurrentStoryIndex(index);
@@ -289,29 +294,6 @@ function Products() {
     setIsStoryModalOpen(false);
     setProgress(0);
     clearStoryTimer();
-  };
-
-  const startStoryTimer = () => {
-    clearStoryTimer();
-    const duration = 5000;
-    const interval = 50;
-    const steps = duration / interval;
-    let step = 0;
-
-    storyTimerRef.current = setInterval(() => {
-      step++;
-      setProgress((step / steps) * 100);
-      if (step >= steps) {
-        goToNextStory();
-      }
-    }, interval);
-  };
-
-  const clearStoryTimer = () => {
-    if (storyTimerRef.current) {
-      clearInterval(storyTimerRef.current);
-      storyTimerRef.current = null;
-    }
   };
 
   const goToNextStory = () => {
@@ -336,69 +318,104 @@ function Products() {
   const storySwipeHandlers = useSwipeable({
     onSwipedLeft: goToNextStory,
     onSwipedRight: goToPrevStory,
+    onTap: () => {
+      setIsPaused((prev) => {
+        if (!prev) clearStoryTimer();
+        else startStoryTimer();
+        return !prev;
+      });
+    },
     preventScrollOnSwipe: true,
   });
 
-  const handleCartOpen = () => {
-    setIsCartOpen(true);
-  };
+  // Обработчики корзины
+  const handleCartOpen = () => setIsCartOpen(true);
+  const handleCartClose = () => setIsCartOpen(false);
 
-  const handleCartClose = () => {
-    setIsCartOpen(false);
-  };
-
-  const handleProductClick = (product, category) => {
+  // Обработчики продукта
+  const handleProductClick = useCallback((product, category) => {
     setSelectedProduct({ product, category });
-    if (category !== "Пиццы") setPizzaSize(null);
+    setSelectedVariant(null);
+    setSelectedTasteVariant(null);
     setIsProductModalOpen(true);
-  };
+  }, []);
 
-  const isPizza = (product) => {
-    return (
-      product &&
-      product.price_small &&
-      product.price_medium &&
-      product.price_large
-    );
-  };
+  const hasPriceVariants = useCallback((product) => {
+    const priceFields = [
+      product.price_single,
+      product.price,
+      product.price_small,
+      product.price_medium,
+      product.price_large,
+    ].filter((price) => price !== undefined && price !== null);
+    return priceFields.length > 1;
+  }, []);
 
-  const handleAddToCart = () => {
+  const hasTasteVariants = useCallback((product) => {
+    return product.variants && product.variants.length > 0;
+  }, []);
+
+  const getPriceOptions = useCallback((product) => {
+    const options = [];
+    const isDrink = product.category === "Напитки";
+
+    if (isDrink) {
+      if (product.price_small) options.push({ key: "small", price: product.price_small, label: "0.5 л" });
+      if (product.price_medium) options.push({ key: "medium", price: product.price_medium, label: "1 л" });
+      if (product.price_large) options.push({ key: "large", price: product.price_large, label: "1.5 л" });
+    } else {
+      if (product.price_small) options.push({ key: "small", price: product.price_small, label: "Маленькая" });
+      if (product.price_medium) options.push({ key: "medium", price: product.price_medium, label: "Средняя" });
+      if (product.price_large) options.push({ key: "large", price: product.price_large, label: "Большая" });
+    }
+
+    if (product.price_single) options.push({ key: "single", price: product.price_single, label: isDrink ? "Стандартный объем" : "Стандарт" });
+    if (product.price && !options.length) options.push({ key: "default", price: product.price, label: "Базовая" });
+
+    return options;
+  }, []);
+
+  const handleAddToCart = useCallback(() => {
     try {
       if (!selectedProduct?.product) return;
 
-      if (isPizza(selectedProduct.product) && !pizzaSize) {
-        throw new Error("Выберите размер пиццы перед добавлением в корзину.");
+      const priceOptions = getPriceOptions(selectedProduct.product);
+      if (hasPriceVariants(selectedProduct.product) && !selectedVariant) {
+        throw new Error("Выберите вариант размера перед добавлением в корзину.");
+      }
+      if (hasTasteVariants(selectedProduct.product) && !selectedTasteVariant) {
+        throw new Error("Выберите вариант вкуса перед добавлением в корзину.");
       }
 
+      const selectedOption = selectedVariant
+        ? priceOptions.find((opt) => opt.key === selectedVariant)
+        : priceOptions[0];
+
+      const selectedTaste = selectedTasteVariant
+        ? selectedProduct.product.variants.find((variant) => variant.name === selectedTasteVariant)
+        : null;
+
+      const basePrice = Number(selectedOption.price) || 0;
+      const additionalPrice = selectedTaste ? Number(selectedTaste.additionalPrice) || 0 : 0;
+      const totalPrice = basePrice + additionalPrice;
+
       const itemToAdd = {
-        id: isPizza(selectedProduct.product)
-          ? `${selectedProduct.product.id}-${pizzaSize}`
+        id: priceOptions.length > 1 || hasTasteVariants(selectedProduct.product)
+          ? `${selectedProduct.product.id}-${selectedOption.key}-${selectedTasteVariant || "default"}`
           : selectedProduct.product.id,
-        name: isPizza(selectedProduct.product)
-          ? `${selectedProduct.product.name} (${pizzaSize})`
+        name: priceOptions.length > 1 || hasTasteVariants(selectedProduct.product)
+          ? `${selectedProduct.product.name} (${selectedOption.label}${selectedTasteVariant ? `, ${selectedTasteVariant}` : ""})`
           : selectedProduct.product.name,
-        price:
-          isPizza(selectedProduct.product) && pizzaSize
-            ? Number(selectedProduct.product[`price_${pizzaSize.toLowerCase()}`])
-            : Number(
-                selectedProduct.product.price_single ||
-                  selectedProduct.product.price ||
-                  0
-              ),
+        price: totalPrice,
         quantity: 1,
         image: selectedProduct.product.image_url,
       };
 
       setCartItems((prevItems) => {
-        const existingItemIndex = prevItems.findIndex(
-          (item) => item.id === itemToAdd.id
-        );
-
+        const existingItemIndex = prevItems.findIndex((item) => item.id === itemToAdd.id);
         if (existingItemIndex > -1) {
           return prevItems.map((item, index) =>
-            index === existingItemIndex
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
+            index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
           );
         }
         return [...prevItems, itemToAdd];
@@ -408,33 +425,31 @@ function Products() {
     } catch (error) {
       setErrorMessage(error.message);
     }
-  };
+  }, [selectedProduct, selectedVariant, selectedTasteVariant, getPriceOptions, hasPriceVariants, hasTasteVariants]);
 
-  const handleQuantityChange = (itemId, change) => {
+  const handleQuantityChange = useCallback((itemId, change) => {
     setCartItems((prevItems) =>
       prevItems
-        .map((item) =>
-          item.id === itemId
-            ? { ...item, quantity: Math.max(0, item.quantity + change) }
-            : item
-        )
+        .map((item) => item.id === itemId ? { ...item, quantity: Math.max(0, item.quantity + change) } : item)
         .filter((item) => item.quantity > 0)
     );
-  };
+  }, []);
 
-  const handleOrderChange = (e) => {
+  // Обработчики форм
+  const handleOrderChange = useCallback((e) => {
     const { name, value } = e.target;
     setOrderDetails((prev) => ({ ...prev, [name]: value }));
     setFormErrors((prev) => ({ ...prev, [name]: "" }));
-  };
+  }, []);
 
-  const handleDeliveryChange = (e) => {
+  const handleDeliveryChange = useCallback((e) => {
     const { name, value } = e.target;
     setDeliveryDetails((prev) => ({ ...prev, [name]: value }));
     setFormErrors((prev) => ({ ...prev, [name]: "" }));
-  };
+  }, []);
 
-  const handlePromoCodeSubmit = async () => {
+  // Промокод
+  const handlePromoCodeSubmit = useCallback(async () => {
     try {
       const response = await fetch(`${baseURL}/api/public/validate-promo`, {
         method: "POST",
@@ -447,45 +462,43 @@ function Products() {
       }
       const data = await response.json();
       setDiscount(Number(data.discount) || 0);
-      alert(`Промокод применен! Скидка ${data.discount}% добавлена.`);
+      alert(`Промокод применен! Скидка ${data.discount}%`);
     } catch (error) {
-      console.error("Ошибка проверки промокода:", error);
       alert(error.message || "Ошибка проверки промокода.");
     }
-  };
+  }, [promoCode]);
 
-  const validatePhone = (phone) => {
+  // Валидация
+  const validatePhone = useCallback((phone) => {
     const phoneRegex = /^\+?\d{10,12}$/;
     return phoneRegex.test(phone);
-  };
+  }, []);
 
-  const validateFields = () => {
+  const validateFields = useCallback(() => {
     const errors = {};
     if (isOrderSection) {
-      if (!orderDetails.name) errors.name = "Пожалуйста, заполните имя";
-      if (!orderDetails.phone) errors.phone = "Пожалуйста, заполните телефон";
-      else if (!validatePhone(orderDetails.phone))
-        errors.phone = "Неверный формат телефона (например, +996123456789)";
+      if (!orderDetails.name) errors.name = "Заполните имя";
+      if (!orderDetails.phone) errors.phone = "Заполните телефон";
+      else if (!validatePhone(orderDetails.phone)) errors.phone = "Неверный формат телефона (например, +996123456789)";
     } else {
-      if (!deliveryDetails.name) errors.name = "Пожалуйста, заполните имя";
-      if (!deliveryDetails.phone)
-        errors.phone = "Пожалуйста, заполните телефон";
-      else if (!validatePhone(deliveryDetails.phone))
-        errors.phone = "Неверный формат телефона (например, +996123456789)";
-      if (!deliveryDetails.address)
-        errors.address = "Пожалуйста, заполните адрес";
+      if (!deliveryDetails.name) errors.name = "Заполните имя";
+      if (!deliveryDetails.phone) errors.phone = "Заполните телефон";
+      else if (!validatePhone(deliveryDetails.phone)) errors.phone = "Неверный формат телефона (например, +996123456789)";
+      if (!deliveryDetails.address) errors.address = "Заполните адрес";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  };
+  }, [isOrderSection, orderDetails, deliveryDetails, validatePhone]);
 
-  const sendOrderToServer = async () => {
+  // Отправка заказа
+  const sendOrderToServer = useCallback(async () => {
     if (cartItems.length === 0) {
-      alert("Ваша корзина пуста. Добавьте товары перед оформлением заказа.");
+      alert("Корзина пуста!");
       return;
     }
     if (!selectedBranch) {
-      alert("Пожалуйста, выберите филиал перед оформлением заказа.");
+      alert("Выберите филиал!");
+      setIsBranchModalOpen(true); // Открываем модальное окно, если филиал не выбран
       return;
     }
     if (!validateFields()) return;
@@ -498,16 +511,17 @@ function Products() {
         discountedPrice: calculateDiscountedPrice(item.price),
       }));
 
+      // Логирование перед отправкой заказа
+      console.log("Отправка заказа с branchId:", selectedBranch);
       const orderPayload = {
         orderDetails: isOrderSection ? orderDetails : {},
         deliveryDetails: !isOrderSection ? deliveryDetails : {},
         cartItems: cartItemsWithPrices,
         discount: discount || 0,
         promoCode: promoCode || "",
-        branchId: parseInt(selectedBranch), // Добавляем branchId
+        branchId: parseInt(selectedBranch),
       };
-
-      console.log("Отправляемые данные:", orderPayload); // Для отладки
+      console.log("Полный payload заказа:", orderPayload);
 
       const response = await fetch(`${baseURL}/api/public/send-order`, {
         method: "POST",
@@ -517,10 +531,9 @@ function Products() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `Ошибка сервера: ${response.status}`);
+        throw new Error(errorData.error || `Ошибка: ${response.status}`);
       }
 
-      const result = await response.json();
       setIsOrderSent(true);
       setCartItems([]);
       localStorage.removeItem("cartItems");
@@ -528,20 +541,20 @@ function Products() {
       setDiscount(0);
       setOrderDetails({ name: "", phone: "", comments: "" });
       setDeliveryDetails({ name: "", phone: "", address: "", comments: "" });
-      setTimeout(() => setIsOrderSent(false), 4000);
+      setTimeout(() => setIsOrderSent(false), 3000);
       fetchOrderHistory();
     } catch (error) {
       console.error("Ошибка при отправке заказа:", error);
-      alert(error.message || "Произошла ошибка при отправке заказа");
+      alert(error.message || "Ошибка при отправке заказа");
     }
-  };
+  }, [cartItems, selectedBranch, isOrderSection, orderDetails, deliveryDetails, discount, promoCode, fetchOrderHistory, validateFields]);
 
-  const calculateDiscountedPrice = (price) => {
+  const calculateDiscountedPrice = useCallback((price) => {
     const validPrice = Number(price) || 0;
     return validPrice * (1 - discount / 100);
-  };
+  }, [discount]);
 
-  const calculateTotal = () => {
+  const calculateTotal = useMemo(() => {
     const total = cartItems.reduce((sum, item) => {
       const price = Number(item.price) || 0;
       return sum + price * item.quantity;
@@ -551,44 +564,20 @@ function Products() {
       total: total.toFixed(2),
       discountedTotal: discountedTotal.toFixed(2),
     };
-  };
+  }, [cartItems, discount]);
 
   const closeProductModal = () => {
-    setIsModalClosing(true);
-    setModalPosition(0);
+    setIsProductModalOpen(false);
     setTimeout(() => {
-      setIsProductModalOpen(false);
       setSelectedProduct(null);
-      setPizzaSize(null);
+      setSelectedVariant(null);
+      setSelectedTasteVariant(null);
       setErrorMessage("");
-      setIsModalClosing(false);
-    }, 400);
+    }, 300);
   };
 
-  const handleOutsideClick = (e) => {
-    if (e.target.className.includes("modal") && !isModalClosing) {
-      closeProductModal();
-    }
-  };
-
-  const swipeHandlers = useSwipeable({
-    onSwiping: (eventData) => {
-      const { deltaY } = eventData;
-      if (deltaY > 0 && modalRef.current) {
-        setModalPosition(deltaY);
-      }
-    },
-    onSwipedDown: (eventData) => {
-      if (eventData.deltaY > 100) {
-        closeProductModal();
-      } else {
-        setModalPosition(0);
-      }
-    },
-    preventScrollOnSwipe: true,
-  });
-
-  const handleBranchSelect = (branchId) => {
+  const handleBranchSelect = useCallback((branchId) => {
+    console.log("Выбран филиал с ID:", branchId); // Логирование для отладки
     setSelectedBranch(branchId);
     localStorage.setItem("selectedBranch", branchId);
     setIsBranchModalOpen(false);
@@ -597,152 +586,164 @@ function Products() {
     setOrderHistory([]);
     setCartItems([]);
     localStorage.removeItem("cartItems");
-  };
+  }, []);
 
-  const handleChangeBranch = () => {
-    setIsBranchModalOpen(true);
-  };
-
-  const getImageUrl = (imageKey) => {
-    if (!imageKey) return jpgPlaceholder;
-    const key = imageKey.split("/").pop();
-    return `${baseURL}/product-image/${key}`;
-  };
-
-  const fetchOrderHistory = async () => {
-    if (!selectedBranch) return;
-    try {
-      const response = await fetch(
-        `${baseURL}/api/public/branches/${selectedBranch}/orders`
-      );
-      if (!response.ok)
-        throw new Error(
-          `Ошибка при загрузке истории заказов: ${response.status}`
-        );
-      const data = await response.json();
-      setOrderHistory(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Ошибка при загрузке истории заказов:", error);
-      setError("Не удалось загрузить историю заказов: " + error.message);
+  const getImageUrl = useCallback((imageKey) => {
+    if (!imageKey) {
+      console.warn("imageKey отсутствует, возвращается placeholder");
+      return jpgPlaceholder;
     }
+    const key = imageKey.split("/").pop();
+    const url = `${baseURL}/product-image/${key}`;
+    console.log(`Формирование URL для изображения: ${url}`);
+    return url;
+  }, []);
+
+  // Дебаунсинг поиска
+  const debouncedSetSearchQuery = useCallback(
+    debounce((value) => setSearchQuery(value), 300),
+    []
+  );
+
+  const handleSearchChange = (e) => {
+    debouncedSetSearchQuery(e.target.value);
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesPrice =
-      !filterPrice ||
-      (Number(product.price_single) ||
-        Number(product.price_small) ||
-        Number(product.price) ||
-        0) <= filterPrice;
-    return matchesSearch && matchesPrice;
-  });
+  const handleImageError = (id) => {
+    console.warn(`Ошибка загрузки изображения для продукта с id: ${id}`);
+    setImageErrors((prev) => ({ ...prev, [id]: true }));
+  };
 
-  const groupedFilteredItems = filteredProducts.reduce((acc, product) => {
-    acc[product.category] = acc[product.category] || [];
-    acc[product.category].push(product);
-    return acc;
-  }, {});
+  const handleImageLoad = (id) => {
+    setImageErrors((prev) => ({ ...prev, [id]: false }));
+  };
 
-  const sortedFilteredCategories = Object.fromEntries(
-    Object.entries(groupedFilteredItems).sort(([catA], [catB]) => {
-      const indexA = priority.indexOf(catA);
-      const indexB = priority.indexOf(catB);
-      return (
-        (indexA === -1 ? Infinity : indexA) -
-        (indexB === -1 ? Infinity : indexB)
-      );
-    })
-  );
+  // Фильтрация продуктов
+  const filteredProducts = useMemo(() => {
+    console.log("Фильтрация продуктов:", products);
+    if (!products || products.length === 0) {
+      console.warn("Продукты отсутствуют для фильтрации");
+      return [];
+    }
+    return products.filter((product) => {
+      if (!product || !product.name) {
+        console.warn("Некорректный продукт:", product);
+        return false;
+      }
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const priceToCheck = Number(product.price_single || product.price_small || product.price || 0);
+      const matchesPrice = !filterPrice || priceToCheck <= filterPrice;
+      return matchesSearch && matchesPrice;
+    });
+  }, [products, searchQuery, filterPrice]);
+
+  const groupedFilteredItems = useMemo(() => {
+    console.log("Группировка отфильтрованных продуктов:", filteredProducts);
+    return filteredProducts.reduce((acc, product) => {
+      if (!product.category) {
+        console.warn("Продукт без категории:", product);
+        return acc;
+      }
+      acc[product.category] = acc[product.category] || [];
+      acc[product.category].push(product);
+      return acc;
+    }, {});
+  }, [filteredProducts]);
+
+  const sortedFilteredCategories = useMemo(() => {
+    console.log("Сортировка отфильтрованных категорий:", groupedFilteredItems);
+    return Object.fromEntries(
+      Object.entries(groupedFilteredItems).sort(([catA], [catB]) => {
+        const indexA = priority.indexOf(catA);
+        const indexB = priority.indexOf(catB);
+        return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+      })
+    );
+  }, [groupedFilteredItems]);
 
   return (
     <div className="menu-wrapper">
+      {isLoading && (
+        <div className="loader">
+          <span>Загрузка...</span>
+        </div>
+      )}
       {error && <div className="error-message">{error}</div>}
 
+      {/* Модальное окно выбора филиала */}
       {isBranchModalOpen && (
-        <div
-          className="modal-overlay"
-          onClick={() => branches.length > 0 && setIsBranchModalOpen(false)}
-        >
-          <div
-            className="branch-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className={`modal-overlay ${isBranchModalOpen ? "open" : "close"}`}>
+          <div className={`modal-content glass-effect ${isBranchModalOpen ? "open" : "close"}`} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">Выберите филиал</h2>
             <div className="branch-list">
-              {branches.length > 0 ? (
-                branches.map((branch) => (
-                  <div
-                    key={branch.id}
-                    className={`branch-item ${
-                      selectedBranch === branch.id ? "selected" : ""
-                    }`}
-                    onClick={() => handleBranchSelect(branch.id)}
-                  >
-                    <div className="branch-name">{branch.name}</div>
-                    <div className="branch-address">{branch.address}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="no-branches">
-                  <p>Филиалы не найдены</p>
-                  <button onClick={fetchBranches} className="refresh-button">
-                    Обновить
-                  </button>
+              {branches.map((branch) => (
+                <div
+                  key={branch.id}
+                  className={`branch-item ${selectedBranch === branch.id ? "selected" : ""}`}
+                  onClick={() => handleBranchSelect(branch.id)}
+                >
+                  <div className="branch-name">{branch.name} (ID: {branch.id})</div> {/* Добавляем ID для отладки */}
+                  <div className="branch-address">{branch.address || "Адрес не указан"}</div>
                 </div>
-              )}
+              ))}
             </div>
-            {branches.length > 0 && (
-              <button
-                className="close-modal-button"
-                onClick={() => setIsBranchModalOpen(false)}
-              >
-                Закрыть
-              </button>
-            )}
+            <button className="close-modal-button" onClick={() => setIsBranchModalOpen(false)}>
+              Закрыть
+            </button>
           </div>
         </div>
       )}
 
-      <header className="header">
-        <div className="header-right">
+      {/* Шапка */}
+      <header className="header glass-effect">
+        <div className="header-content">
           <div className="search-bar">
             <FiSearch className="search-icon" />
             <input
               type="text"
-              placeholder="Поиск блюд..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск по категориям..."
+              onChange={handleSearchChange}
             />
           </div>
-          <div className="branch-info">
-            <div className="branch-status">
-              {selectedBranch && branches.length > 0 ? (
-                <>
-                  <span>
-                    Филиал:{" "}
-                    {branches.find((b) => b.id === parseInt(selectedBranch))
-                      ?.name || "Неизвестный филиал"}
-                  </span>
-                  <button
-                    onClick={handleChangeBranch}
-                    className="change-branch-btn"
-                  >
-                    Сменить
-                  </button>
-                </>
-              ) : (
-                <span>Выберите филиал для продолжения</span>
-              )}
-            </div>
-          </div>
         </div>
+        {selectedBranch && Object.keys(sortedFilteredCategories).length > 0 && (
+          <nav className="menu-nav" ref={menuRef}>
+            <ul>
+              {Object.keys(sortedFilteredCategories).map((category) =>
+                category !== "Часто продаваемые товары" ? (
+                  <li key={category}>
+                    <a
+                      href={`#${category}`}
+                      className={activeCategory === category ? "active" : ""}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById(category)?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    >
+                      {categoryEmojis[category] || ""} {category}
+                    </a>
+                  </li>
+                ) : null
+              )}
+            </ul>
+          </nav>
+        )}
       </header>
 
+      {/* Информация о филиале */}
+      <div className="branch-info">
+        {selectedBranch && (
+          <span>
+            {branches.find((b) => b.id === parseInt(selectedBranch))?.name || "Филиал не выбран"}
+            <FiChevronDown className="dropdown-icon" onClick={() => setIsBranchModalOpen(true)} />
+          </span>
+        )}
+      </div>
+
+      {/* Основной контент */}
       {selectedBranch && (
-        <>
+        <div className="content-wrapper">
+          {/* Секция сторис */}
           {stories.length > 0 && (
             <div className="stories-section">
               <h2>Истории</h2>
@@ -750,90 +751,67 @@ function Products() {
                 {stories.map((story, index) => (
                   <div
                     key={story.id}
-                    className={`story-card ${
-                      viewedStories.has(index) ? "viewed" : ""
-                    }`}
+                    className={`story-card ${viewedStories.has(index) ? "viewed" : ""}`}
                     onClick={() => openStoryModal(index)}
                   >
-                    <div className="story-image-wrapper">
-                      <img
-                        src={story.image}
-                        alt="История"
-                        className="story-image"
-                        onError={(e) => {
-                          e.target.src =
-                            "https://via.placeholder.com/150?text=Image+Not+Found";
+                    <LazyImage
+                      src={story.image}
+                      alt="История"
+                      placeholder={jpgPlaceholder}
+                      className="story-image"
+                      onError={() => handleImageError(story.id)}
+                      onLoad={() => handleImageLoad(story.id)}
+                    />
+                    <p>{new Date(story.created_at).toLocaleDateString()}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Модальное окно сторис */}
+          {isStoryModalOpen && (
+            <div className={`story-modal ${isStoryModalOpen ? "open" : "close"}`} {...storySwipeHandlers}>
+              <div className={`story-content glass-effect ${isStoryModalOpen ? "open" : "close"}`}>
+                <div className="story-progress">
+                  {stories.map((_, index) => (
+                    <div key={index} className="progress-bar">
+                      <div
+                        className="progress-bar-fill"
+                        style={{
+                          width: index === currentStoryIndex ? `${progress}%` : index < currentStoryIndex ? "100%" : "0%",
                         }}
                       />
                     </div>
-                    <p className="story-title">
-                      {new Date(story.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isStoryModalOpen && (
-            <div
-              className={`story-modal ${isStoryModalOpen ? "open" : ""}`}
-              {...storySwipeHandlers}
-            >
-              <div className="story-progress">
-                {stories.map((_, index) => (
-                  <div key={index} className="progress-bar">
-                    <div
-                      className="progress-bar-fill"
-                      style={{
-                        width:
-                          index === currentStoryIndex
-                            ? `${progress}%`
-                            : index < currentStoryIndex
-                            ? "100%"
-                            : "0%",
-                        transitionDuration:
-                          index === currentStoryIndex ? "5s" : "0s",
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="story-content">
-                <div
-                  className="story-nav story-nav-left"
-                  onClick={goToPrevStory}
-                />
-                <img
+                  ))}
+                </div>
+                <LazyImage
                   src={stories[currentStoryIndex].image}
                   alt="История"
-                  className="story-content-image"
-                  onError={(e) => {
-                    e.target.src =
-                      "https://via.placeholder.com/150?text=Image+Not+Found";
-                  }}
+                  placeholder={jpgPlaceholder}
+                  className="story-image-full"
+                  onError={() => handleImageError(stories[currentStoryIndex].id)}
+                  onLoad={() => handleImageLoad(stories[currentStoryIndex].id)}
                 />
-                <div
-                  className="story-nav story-nav-right"
-                  onClick={goToNextStory}
-                />
+                <button className="close-modal" onClick={closeStoryModal}>
+                  <FiX size={24} />
+                </button>
               </div>
-              <button className="story-modal-close" onClick={closeStoryModal}>
-                ✕
-              </button>
             </div>
           )}
 
-          <div className="filters-section">
+          {/* Фильтры */}
+          <div className="filters-section glass-effect">
             <h3>Фильтры</h3>
             <div className="filter-options">
+              <input
+                type="text"
+                placeholder="Поиск по названию"
+                onChange={handleSearchChange}
+              />
               <select
-                onChange={(e) =>
-                  setFilterPrice(
-                    e.target.value ? parseInt(e.target.value) : null
-                  )
-                }
                 value={filterPrice || ""}
+                onChange={(e) => setFilterPrice(e.target.value ? parseInt(e.target.value) : null)}
               >
                 <option value="">Все цены</option>
                 <option value="500">До 500 сом</option>
@@ -843,381 +821,259 @@ function Products() {
             </div>
           </div>
 
-          {products.length > 0 && (
-            <>
-              <h2 className="Mark_Shop">Часто продаваемые товары</h2>
-              <div className="best-sellers">
-                {products
-                  .filter(
-                    (product) => product.category === "Часто продаваемые товары"
-                  )
-                  .map((product) => (
-                    <div
-                      className="best-seller-product"
-                      key={product.id}
-                      onClick={() =>
-                        handleProductClick(product, "Часто продаваемые товары")
-                      }
-                    >
-                      <LazyImage
-                        className="best-seller-product-image"
-                        src={getImageUrl(product.image_url)}
-                        alt={product.name}
-                        placeholder={jpgPlaceholder}
-                      />
-                      <div className="best-seller-product-info">
-                        <h3 className="best-seller-product-title">
-                          {product.name}
-                        </h3>
-                        <div className="best-seller-product-price">
-                          {isPizza(product) ? (
-                            <p className="best-sellers_price_p">
-                              от {Number(product.price_small)} -{" "}
-                              {Number(product.price_large)} сом
-                            </p>
-                          ) : product.price_single ? (
-                            <p className="best-sellers_price_p">
-                              {Number(product.price_single)} сом
-                            </p>
-                          ) : (
-                            <p className="best-sellers_price_p">
-                              Цена не указана
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          className="add-to-cart-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleProductClick(
-                              product,
-                              "Часто продаваемые товары"
-                            );
-                          }}
+          {/* Секция продуктов */}
+          <div className="products-section">
+            {products.length > 0 ? (
+              <>
+                <h2 className="section-title">Часто продаваемые</h2>
+                <div className="best-sellers">
+                  {products.filter(product => product.category === "Часто продаваемые товары").length > 0 ? (
+                    products.map((product) =>
+                      product.category === "Часто продаваемые товары" ? (
+                        <div
+                          key={product.id}
+                          className="best-seller-product glass-effect"
+                          onClick={() => handleProductClick(product, "Часто продаваемые товары")}
                         >
-                          Добавить
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-
-              <div className="halal_box">
-                <img className="halal_img" src={halal} alt="Halal" />
-                <div>
-                  <h1 className="halal_title">Халяль</h1>
-                  <p className="halal_subtitle">
-                    Всё приготовлено по стандартам
-                  </p>
+                          <LazyImage
+                            src={imageErrors[product.id] ? jpgPlaceholder : getImageUrl(product.image_url)}
+                            alt={product.name}
+                            placeholder={jpgPlaceholder}
+                            className="best-seller-image"
+                            onError={() => handleImageError(product.id)}
+                            onLoad={() => handleImageLoad(product.id)}
+                          />
+                          <h3>{product.name}</h3>
+                          <p>
+                            {hasPriceVariants(product)
+                              ? `от ${Math.min(...getPriceOptions(product).map((opt) => Number(opt.price)))} сом`
+                              : `${Number(product.price_single || product.price || 0)} сом`}
+                          </p>
+                          <button className="add-btn">Добавить</button>
+                        </div>
+                      ) : null
+                    )
+                  ) : (
+                    <p>Нет часто продаваемых товаров</p>
+                  )}
                 </div>
-              </div>
 
-              <div className="option__container" ref={menuRef}>
-                <div className="option__name">
-                  <ul>
-                    {Object.entries(sortedFilteredCategories).map(
-                      ([category]) =>
-                        category !== "Часто продаваемые товары" ? (
-                          <li key={category}>
-                            <a
-                              className={
-                                activeCategory === category ? "active" : ""
-                              }
-                              href={`#${category}`}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                document
-                                  .getElementById(category)
-                                  ?.scrollIntoView({
-                                    behavior: "smooth",
-                                  });
-                              }}
-                            >
-                              {categoryEmojis[category] || ""} {category}
-                            </a>
-                          </li>
-                        ) : null
-                    )}
-                  </ul>
-                </div>
-              </div>
-
-              <div className="menu-items">
-                {Object.entries(sortedFilteredCategories)
-                  .filter(
-                    ([category]) => category !== "Часто продаваемые товары"
-                  )
-                  .map(([category, products]) => (
-                    <div
-                      className="menu-category"
-                      key={category}
-                      id={category}
-                      ref={(el) => (sectionRefs.current[category] = el)}
-                    >
-                      <h2 className="menu-category-title">{category}</h2>
-                      <div className="menu-products">
-                        {products.map((product) => {
-                          const hasMultipleSizes =
-                            product.price_small ||
-                            product.price_medium ||
-                            product.price_large;
-
-                          let priceRange = null;
-                          if (hasMultipleSizes) {
-                            const prices = [];
-                            if (product.price_small)
-                              prices.push(Number(product.price_small));
-                            if (product.price_medium)
-                              prices.push(Number(product.price_medium));
-                            if (product.price_large)
-                              prices.push(Number(product.price_large));
-
-                            if (prices.length > 0) {
-                              const minPrice = Math.min(...prices);
-                              const maxPrice = Math.max(...prices);
-                              priceRange = `от ${minPrice} - ${maxPrice} сом`;
-                            } else {
-                              priceRange = "Цена не указана";
-                            }
-                          }
-
-                          return (
-                            <div
-                              className="menu-product"
-                              key={product.id}
-                              onClick={() =>
-                                handleProductClick(product, category)
-                              }
-                            >
-                              <LazyImage
-                                className="menu-product-image"
-                                src={getImageUrl(product.image_url)}
-                                alt={product.name}
-                                placeholder={jpgPlaceholder}
-                              />
-                              <div className="menu-product-info">
-                                <h3 className="menu-product-title">
-                                  {product.name}
-                                </h3>
-                                <p className="menu-product-description">
-                                  {product.description}
-                                </p>
-                                <p className="menu-product-price">
-                                  {hasMultipleSizes
-                                    ? priceRange
-                                    : `${
-                                        Number(product.price_single) ||
-                                        Number(product.price) ||
-                                        0
-                                      } сом`}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-
-              {orderHistory.length > 0 && (
-                <div className="order-history">
-                  <h2 className="Mark_Shop">История заказов</h2>
-                  <div className="history-items">
-                    {orderHistory.map((order) => (
-                      <div key={order.id} className="history-item">
-                        <p>Заказ #{order.id}</p>
-                        <p>Сумма: {Number(order.total).toFixed(2)} сом</p>
-                        <p>
-                          Дата: {new Date(order.created_at).toLocaleString()}
-                        </p>
-                        <p>Статус: {order.status}</p>
-                      </div>
-                    ))}
+                {/* Халяль блок */}
+                <div className="halal-box glass-effect">
+                  <img src={halal} alt="Halal" className="halal-img" />
+                  <div>
+                    <h1>Халяль</h1>
+                    <p>Всё по стандартам</p>
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </>
+
+                {/* Меню */}
+                <div className="menu-items">
+                  {Object.entries(sortedFilteredCategories).length > 0 ? (
+                    Object.entries(sortedFilteredCategories).map(([category, items]) =>
+                      category !== "Часто продаваемые товары" ? (
+                        <div
+                          key={category}
+                          id={category}
+                          className="menu-category"
+                          ref={(el) => (sectionRefs.current[category] = el)}
+                        >
+                          <h2>{category}</h2>
+                          <div className="menu-products">
+                            {items.map((product) => (
+                              <div
+                                key={product.id}
+                                className="menu-product glass-effect"
+                                onClick={() => handleProductClick(product, category)}
+                              >
+                                <LazyImage
+                                  src={imageErrors[product.id] ? jpgPlaceholder : getImageUrl(product.image_url)}
+                                  alt={product.name}
+                                  placeholder={jpgPlaceholder}
+                                  className="menu-product-image"
+                                  onError={() => handleImageError(product.id)}
+                                  onLoad={() => handleImageLoad(product.id)}
+                                />
+                                <div className="menu-product-info">
+                                  <h3>{product.name}</h3>
+                                  <p className="title_prod">{product.description}</p>
+                                  <p>
+                                    {hasPriceVariants(product)
+                                      ? `от ${Math.min(...getPriceOptions(product).map((opt) => Number(opt.price)))} сом`
+                                      : `${Number(product.price_single || product.price || 0)} сом`}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null
+                    )
+                  ) : (
+                    <p>Нет доступных категорий</p>
+                  )}
+                </div>
+
+                {/* История заказов */}
+                {orderHistory.length > 0 && (
+                  <div className="order-history">
+                    <h2 className="section-title">История заказов</h2>
+                    <div className="history-items">
+                      {orderHistory.map((order) => (
+                        <div key={order.id} className="history-item glass-effect">
+                          <p>Заказ #{order.id}</p>
+                          <p>Сумма: {Number(order.total).toFixed(2)} сом</p>
+                          <p>Дата: {new Date(order.created_at).toLocaleString()}</p>
+                          <p>Статус: {order.status}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p>Продукты не найдены</p>
+            )}
+          </div>
+        </div>
       )}
 
-      {selectedProduct && isProductModalOpen && (
+      {/* Модальное окно продукта */}
+      {selectedProduct && (
         <div
-          ref={modalRef}
-          {...swipeHandlers}
-          className={`modal ${isProductModalOpen ? "see" : ""} ${
-            isModalClosing ? "closing" : ""
-          }`}
-          onClick={handleOutsideClick}
+          className={`modal-overlay ${isProductModalOpen ? "open" : "close"}`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeProductModal();
+          }}
         >
-          <div
-            className="modal-content"
-            style={{
-              transform: `translateY(${modalPosition}px)`,
-            }}
-          >
+          <div className={`modal-content glass-effect ${isProductModalOpen ? "open" : "close"}`} onClick={(e) => e.stopPropagation()} ref={modalRef}>
             <button className="close-modal" onClick={closeProductModal}>
-              ✕
+              <FiX size={24} />
             </button>
             <div className="modal-body">
-              <img
-                src={getImageUrl(selectedProduct.product.image_url)}
+              <LazyImage
+                src={imageErrors[selectedProduct.product.id] ? jpgPlaceholder : getImageUrl(selectedProduct.product.image_url)}
                 alt={selectedProduct.product.name}
+                placeholder={jpgPlaceholder}
                 className="modal-image"
-                onError={(e) => (e.target.src = jpgPlaceholder)}
+                onError={() => handleImageError(selectedProduct.product.id)}
+                onLoad={() => handleImageLoad(selectedProduct.product.id)}
               />
               <div className="modal-info">
                 <h1>{selectedProduct.product.name}</h1>
                 <p>{selectedProduct.product.description}</p>
-                {isPizza(selectedProduct.product) && (
-                  <div className="pizza-selection">
+                {hasPriceVariants(selectedProduct.product) ? (
+                  <div className="variant-selection">
                     <h3>Выберите размер:</h3>
-                    <div className="pizza-sizes">
+                    {getPriceOptions(selectedProduct.product).map((option) => (
                       <button
-                        className={`pizza-size ${
-                          pizzaSize === "small" ? "selected" : ""
-                        }`}
-                        onClick={() => setPizzaSize("small")}
+                        key={option.key}
+                        className={`variant-btn ${selectedVariant === option.key ? "selected" : ""}`}
+                        onClick={() => setSelectedVariant(option.key)}
                       >
-                        Маленькая ({selectedProduct.product.price_small} сом)
+                        {option.label} ({option.price} сом)
                       </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p>Цена: {Number(selectedProduct.product.price_single || selectedProduct.product.price || 0)} сом</p>
+                )}
+                {hasTasteVariants(selectedProduct.product) && (
+                  <div className="variant-selection">
+                    <h3>Выберите вкус:</h3>
+                    {selectedProduct.product.variants.map((variant) => (
                       <button
-                        className={`pizza-size ${
-                          pizzaSize === "medium" ? "selected" : ""
-                        }`}
-                        onClick={() => setPizzaSize("medium")}
+                        key={variant.name}
+                        className={`variant-btn ${selectedTasteVariant === variant.name ? "selected" : ""}`}
+                        onClick={() => setSelectedTasteVariant(variant.name)}
                       >
-                        Средняя ({selectedProduct.product.price_medium} сом)
+                        {variant.name} {variant.additionalPrice > 0 ? `(+${variant.additionalPrice} сом)` : ""}
                       </button>
-                      <button
-                        className={`pizza-size ${
-                          pizzaSize === "large" ? "selected" : ""
-                        }`}
-                        onClick={() => setPizzaSize("large")}
-                      >
-                        Большая ({selectedProduct.product.price_large} сом)
-                      </button>
-                    </div>
+                    ))}
                   </div>
                 )}
-                <button className="add-to-cart" onClick={handleAddToCart}>
-                  Добавить в корзину за{" "}
-                  {isPizza(selectedProduct.product) && pizzaSize
-                    ? selectedProduct.product[`price_${pizzaSize.toLowerCase()}`]
-                    : selectedProduct.product.price_single ||
-                      selectedProduct.product.price ||
-                      0}{" "}
-                  сом
+                <button className="add-to-cart-btn" onClick={handleAddToCart}>
+                  <FiShoppingCart size={18} /> Добавить в корзину
                 </button>
-                {errorMessage && (
-                  <div className="error-message">
-                    <p>{errorMessage}</p>
-                  </div>
-                )}
+                {errorMessage && <p className="error">{errorMessage}</p>}
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Корзина */}
       <Cart cartItems={cartItems} onClick={handleCartOpen} />
-
       {isCartOpen && (
-        <div className={`order-page ${isCartOpen ? "open" : ""}`}>
+        <div className={`cart-panel glass-effect ${isCartOpen ? "open" : "close"}`}>
           {cartItems.length === 0 ? (
             <div className="empty-cart">
               <p>Корзина пуста</p>
-              <button className="close-cart" onClick={handleCartClose}>
+              <button className="close-cart-btn" onClick={handleCartClose}>
                 Закрыть
               </button>
             </div>
           ) : (
             <>
-              <div className="button-group">
+              <div className="cart-header">
                 <button
-                  className={`button_buy ${!isOrderSection ? "active" : ""}`}
+                  className={`tab-btn ${!isOrderSection ? "active" : ""}`}
                   onClick={() => setIsOrderSection(false)}
                 >
                   Доставка
                 </button>
                 <button
-                  className={`button_buy ${isOrderSection ? "active" : ""}`}
+                  className={`tab-btn ${isOrderSection ? "active" : ""}`}
                   onClick={() => setIsOrderSection(true)}
                 >
                   С собой
                 </button>
               </div>
-              <div className="items-section">
-                {cartItems.map((item) => {
-                  const price = Number(item.price) || 0;
-                  const discountedPrice = calculateDiscountedPrice(price).toFixed(2);
-                  return (
-                    <div key={item.id} className="order-item">
-                      <img
-                        src={getImageUrl(item.image)}
-                        alt={item.name}
-                        onError={(e) => (e.target.src = jpgPlaceholder)}
-                      />
-                      <div className="order-item-info">
-                        <h3>{item.name || "Без названия"}</h3>
-                        {discount > 0 ? (
-                          <>
-                            <p className="original-price">
-                              {price.toFixed(2)} сом
-                            </p>
-                            <p className="discounted-price">
-                              {discountedPrice} сом
-                            </p>
-                          </>
-                        ) : (
-                          <p>{price.toFixed(2)} сом</p>
-                        )}
-                        <div className="ad_more">
-                          <button
-                            className="quantity-button"
-                            onClick={() => handleQuantityChange(item.id, -1)}
-                          >
-                            -
-                          </button>
-                          <span className="quantity-display">
-                            {item.quantity || 0}
-                          </span>
-                          <button
-                            className="quantity-button"
-                            onClick={() => handleQuantityChange(item.id, 1)}
-                          >
-                            +
-                          </button>
-                        </div>
+              <div className="cart-items">
+                {cartItems.map((item) => (
+                  <div key={item.id} className="cart-item glass-effect">
+                    <LazyImage
+                      src={imageErrors[item.id] ? jpgPlaceholder : getImageUrl(item.image)}
+                      alt={item.name}
+                      placeholder={jpgPlaceholder}
+                      className="cart-item-image"
+                      onError={() => handleImageError(item.id)}
+                      onLoad={() => handleImageLoad(item.id)}
+                    />
+                    <div className="cart-item-info">
+                      <h3>{item.name}</h3>
+                      {discount > 0 ? (
+                        <>
+                          <p className="original-price">{Number(item.price).toFixed(2)} сом</p>
+                          <p>{calculateDiscountedPrice(item.price).toFixed(2)} сом</p>
+                        </>
+                      ) : (
+                        <p>{Number(item.price).toFixed(2)} сом</p>
+                      )}
+                      <div className="quantity-controls">
+                        <button onClick={() => handleQuantityChange(item.id, -1)}>-</button>
+                        <span>{item.quantity}</span>
+                        <button onClick={() => handleQuantityChange(item.id, 1)}>+</button>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
-              <div className="order-details">
-                <div className="total-section">
-                  <h3 className="total-price">
-                    Итого:
-                    {discount > 0 ? (
-                      <>
-                        <span className="original-total-price">
-                          {calculateTotal().total} сом
-                        </span>
-                        <span className="discounted-total-price">
-                          {calculateTotal().discountedTotal} сом
-                        </span>
-                      </>
-                    ) : (
-                      `${calculateTotal().total} сом`
-                    )}
-                  </h3>
+              <div className="cart-footer">
+                <div className="total">
+                  Итого: {discount > 0 ? (
+                    <>
+                      <span className="original-total">{calculateTotal.total} сом</span>
+                      <span>{calculateTotal.discountedTotal} сом</span>
+                    </>
+                  ) : (
+                    `${calculateTotal.total} сом`
+                  )}
                 </div>
                 <div className="promo-section">
-                  <label htmlFor="promo-code">Промокод:</label>
                   <input
                     type="text"
-                    id="promo-code"
+                    placeholder="Промокод"
                     value={promoCode}
                     onChange={(e) => setPromoCode(e.target.value)}
                   />
@@ -1225,108 +1081,68 @@ function Products() {
                 </div>
                 {isOrderSection ? (
                   <div className="order-form">
-                    <h3>Данные для заказа (с собой)</h3>
-                    <div className="form-group">
-                      <label htmlFor="pickup-name">Имя:</label>
-                      <input
-                        type="text"
-                        id="pickup-name"
-                        name="name"
-                        value={orderDetails.name}
-                        onChange={handleOrderChange}
-                        placeholder="Введите ваше имя"
-                      />
-                      {formErrors.name && (
-                        <p className="error">{formErrors.name}</p>
-                      )}
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="pickup-phone">Телефон:</label>
-                      <input
-                        type="text"
-                        id="pickup-phone"
-                        name="phone"
-                        value={orderDetails.phone}
-                        onChange={handleOrderChange}
-                        placeholder="+996123456789"
-                      />
-                      {formErrors.phone && (
-                        <p className="error">{formErrors.phone}</p>
-                      )}
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="pickup-comments">Комментарии:</label>
-                      <textarea
-                        id="pickup-comments"
-                        name="comments"
-                        value={orderDetails.comments}
-                        onChange={handleOrderChange}
-                        placeholder="Дополнительные пожелания"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      name="name"
+                      value={orderDetails.name}
+                      onChange={handleOrderChange}
+                      placeholder="Имя"
+                    />
+                    {formErrors.name && <p className="error">{formErrors.name}</p>}
+                    <input
+                      type="text"
+                      name="phone"
+                      value={orderDetails.phone}
+                      onChange={handleOrderChange}
+                      placeholder="+996123456789"
+                    />
+                    {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+                    <textarea
+                      name="comments"
+                      value={orderDetails.comments}
+                      onChange={handleOrderChange}
+                      placeholder="Комментарии"
+                    />
                   </div>
                 ) : (
                   <div className="order-form">
-                    <h3>Данные для доставки</h3>
-                    <div className="form-group">
-                      <label htmlFor="delivery-name">Имя:</label>
-                      <input
-                        type="text"
-                        id="delivery-name"
-                        name="name"
-                        value={deliveryDetails.name}
-                        onChange={handleDeliveryChange}
-                        placeholder="Введите ваше имя"
-                      />
-                      {formErrors.name && (
-                        <p className="error">{formErrors.name}</p>
-                      )}
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="delivery-phone">Телефон:</label>
-                      <input
-                        type="text"
-                        id="delivery-phone"
-                        name="phone"
-                        value={deliveryDetails.phone}
-                        onChange={handleDeliveryChange}
-                        placeholder="+996123456789"
-                      />
-                      {formErrors.phone && (
-                        <p className="error">{formErrors.phone}</p>
-                      )}
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="delivery-address">Адрес:</label>
-                      <input
-                        type="text"
-                        id="delivery-address"
-                        name="address"
-                        value={deliveryDetails.address}
-                        onChange={handleDeliveryChange}
-                        placeholder="Введите адрес доставки"
-                      />
-                      {formErrors.address && (
-                        <p className="error">{formErrors.address}</p>
-                      )}
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="delivery-comments">Комментарии:</label>
-                      <textarea
-                        id="delivery-comments"
-                        name="comments"
-                        value={deliveryDetails.comments}
-                        onChange={handleDeliveryChange}
-                        placeholder="Дополнительные пожелания"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      name="name"
+                      value={deliveryDetails.name}
+                      onChange={handleDeliveryChange}
+                      placeholder="Имя"
+                    />
+                    {formErrors.name && <p className="error">{formErrors.name}</p>}
+                    <input
+                      type="text"
+                      name="phone"
+                      value={deliveryDetails.phone}
+                      onChange={handleDeliveryChange}
+                      placeholder="+996123456789"
+                    />
+                    {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+                    <input
+                      type="text"
+                      name="address"
+                      value={deliveryDetails.address}
+                      onChange={handleDeliveryChange}
+                      placeholder="Адрес доставки"
+                    />
+                    {formErrors.address && <p className="error">{formErrors.address}</p>}
+                    <textarea
+                      name="comments"
+                      value={deliveryDetails.comments}
+                      onChange={handleDeliveryChange}
+                      placeholder="Комментарии"
+                    />
                   </div>
                 )}
-                <button className="submit-order" onClick={sendOrderToServer}>
+                <button className="submit-btn" onClick={sendOrderToServer}>
                   Оформить заказ
                 </button>
-                <button className="close-cart" onClick={handleCartClose}>
-                  Закрыть корзину
+                <button className="close-cart-btn" onClick={handleCartClose}>
+                  Закрыть
                 </button>
               </div>
             </>
@@ -1334,9 +1150,10 @@ function Products() {
         </div>
       )}
 
+      {/* Уведомление об успешном заказе */}
       {isOrderSent && (
-        <div className="order-confirmation">
-          <p>Заказ успешно отправлен! Спасибо за ваш заказ.</p>
+        <div className="order-confirmation glass-effect">
+          <p>Заказ успешно отправлен!</p>
         </div>
       )}
     </div>

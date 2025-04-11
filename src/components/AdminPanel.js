@@ -35,7 +35,7 @@ function AdminPanel() {
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [selectedBranch, setSelectedBranch] = useState(""); // "" означает "все филиалы"
   const [categories, setCategories] = useState([]);
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -102,12 +102,14 @@ function AdminPanel() {
         usersRes,
         promoCodesRes,
         storiesRes,
+        productsRes,
       ] = await Promise.all([
         fetch(`${baseURL}/branches`, { headers }),
         fetch(`${baseURL}/categories`, { headers }),
         fetch(`${baseURL}/users`, { headers }),
         fetch(`${baseURL}/promo-codes`, { headers }),
         fetch(`${baseURL}/stories`, { headers }),
+        fetch(`${baseURL}/products`, { headers }),
       ]);
 
       const branchesData = await branchesRes.json();
@@ -115,15 +117,16 @@ function AdminPanel() {
       const usersData = await usersRes.json();
       const promoCodesData = await promoCodesRes.json();
       const storiesData = await storiesRes.json();
+      const productsData = await productsRes.json();
 
       if (!branchesRes.ok) throw new Error("Ошибка загрузки филиалов");
       if (!categoriesRes.ok) throw new Error("Ошибка загрузки категорий");
       if (!usersRes.ok) throw new Error("Ошибка загрузки пользователей");
       if (!promoCodesRes.ok) throw new Error("Ошибка загрузки промокодов");
       if (!storiesRes.ok) throw new Error("Ошибка загрузки историй");
+      if (!productsRes.ok) throw new Error("Ошибка загрузки продуктов");
 
       setBranches(Array.isArray(branchesData) ? branchesData : []);
-      setSelectedBranch(branchesData[0]?.id || null);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
       setUsers(
         Array.isArray(usersData)
@@ -136,6 +139,7 @@ function AdminPanel() {
       );
       setPromoCodeList(Array.isArray(promoCodesData) ? promoCodesData : []);
       setStories(Array.isArray(storiesData) ? storiesData : []);
+      setProducts(Array.isArray(productsData) ? productsData : []);
     } catch (error) {
       console.error("Ошибка загрузки данных:", error);
       setError(error.message || "Не удалось загрузить данные");
@@ -235,29 +239,6 @@ function AdminPanel() {
       alert("Произошла ошибка при удалении истории");
     }
   };
-
-  useEffect(() => {
-    if (!selectedBranch || !isAuthenticated || !token) return;
-
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch(`${baseURL}/products`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Ошибка загрузки продуктов");
-        const data = await response.json();
-        const branchProducts = data.filter(
-          (p) => p.branch_id === selectedBranch
-        );
-        setProducts(Array.isArray(branchProducts) ? branchProducts : []);
-      } catch (error) {
-        console.error("Ошибка загрузки продуктов:", error);
-        setError("Не удалось загрузить продукты");
-      }
-    };
-
-    fetchProducts();
-  }, [selectedBranch, isAuthenticated, token]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -382,7 +363,6 @@ function AdminPanel() {
         setBranches(branches.map((b) => (b.id === data.id ? data : b)));
       } else {
         setBranches([...branches, data]);
-        if (!selectedBranch) setSelectedBranch(data.id);
       }
       closeBranchModal();
       alert("Филиал успешно сохранён!");
@@ -402,7 +382,7 @@ function AdminPanel() {
       });
       if (!response.ok) throw new Error("Ошибка удаления филиала");
       setBranches(branches.filter((b) => b.id !== id));
-      if (selectedBranch === id) setSelectedBranch(branches[0]?.id || null);
+      if (selectedBranch === id) setSelectedBranch("");
       alert("Филиал успешно удалён!");
     } catch (error) {
       console.error("Ошибка:", error);
@@ -583,7 +563,6 @@ function AdminPanel() {
       return;
     }
 
-    // Проверяем, что хотя бы одна цена указана
     const hasAnyPrice =
       priceFieldsCount === 1
         ? priceSingle
@@ -719,6 +698,7 @@ function AdminPanel() {
     setPriceSingle(product.price_single || "");
     setImage(null);
     setImagePreview(getImageUrl(product.image));
+    setSelectedBranch(product.branch_id); // Устанавливаем филиал редактируемого продукта
 
     let count = 0;
     if (product.price_small) count++;
@@ -1036,7 +1016,7 @@ function AdminPanel() {
           </thead>
           <tbody>
             {categories.map((cat) => (
-              < tr key={cat.id}>
+              <tr key={cat.id}>
                 <td>{cat.name}</td>
                 <td>
                   <button
@@ -1181,9 +1161,11 @@ function AdminPanel() {
   };
 
   const renderProductsByCategory = (categoryName) => {
-    const filteredProducts = products.filter(
-      (p) => p.category_name === categoryName
-    );
+    const filteredProducts = selectedBranch
+      ? products.filter(
+          (p) => p.category_name === categoryName && p.branch_id === Number(selectedBranch)
+        )
+      : products.filter((p) => p.category_name === categoryName);
 
     return (
       <div className="category-section">
@@ -1193,6 +1175,8 @@ function AdminPanel() {
             filteredProducts.map((product) => {
               const hasMultipleSizes =
                 product.price_small || product.price_medium || product.price_large;
+              const branchName =
+                branches.find((b) => b.id === product.branch_id)?.name || "Неизвестный филиал";
               return (
                 <div key={product.id} className="product-card">
                   {product.image ? (
@@ -1211,6 +1195,7 @@ function AdminPanel() {
                   )}
                   <h3>{product.name}</h3>
                   <p>{product.description || "Нет описания"}</p>
+                  <p>Филиал: {branchName}</p>
                   {product.effective_discount > 0 && (
                     <p className="discount">
                       Скидка: {product.effective_discount}%
@@ -1354,7 +1339,7 @@ function AdminPanel() {
           <label>Филиал:</label>
           <select
             value={selectedBranch || ""}
-            onChange={(e) => setSelectedBranch(Number(e.target.value))}
+            onChange={(e) => setSelectedBranch(e.target.value ? Number(e.target.value) : "")}
             required
           >
             <option value="">Выберите филиал</option>
@@ -1437,6 +1422,21 @@ function AdminPanel() {
       {renderUsersSection()}
 
       <div className="products-section">
+        <div className="branch-filter">
+          <h2>Продукты</h2>
+          <label>Фильтр по филиалу:</label>
+          <select
+            value={selectedBranch || ""}
+            onChange={(e) => setSelectedBranch(e.target.value ? Number(e.target.value) : "")}
+          >
+            <option value="">Все филиалы</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+          </select>
+        </div>
         {categories.map((cat) => renderProductsByCategory(cat.name))}
       </div>
     </div>
