@@ -490,7 +490,6 @@ function Products() {
     return Object.keys(errors).length === 0;
   }, [isOrderSection, orderDetails, deliveryDetails, validatePhone]);
 
-  // Отправка заказа
   const sendOrderToServer = useCallback(async () => {
     if (cartItems.length === 0) {
       alert("Корзина пуста!");
@@ -498,11 +497,11 @@ function Products() {
     }
     if (!selectedBranch) {
       alert("Выберите филиал!");
-      setIsBranchModalOpen(true); // Открываем модальное окно, если филиал не выбран
+      setIsBranchModalOpen(true);
       return;
     }
     if (!validateFields()) return;
-
+  
     try {
       const cartItemsWithPrices = cartItems.map((item) => ({
         name: item.name,
@@ -510,8 +509,7 @@ function Products() {
         originalPrice: Number(item.price) || 0,
         discountedPrice: calculateDiscountedPrice(item.price),
       }));
-
-      // Логирование перед отправкой заказа
+  
       console.log("Отправка заказа с branchId:", selectedBranch);
       const orderPayload = {
         orderDetails: isOrderSection ? orderDetails : {},
@@ -522,18 +520,18 @@ function Products() {
         branchId: parseInt(selectedBranch),
       };
       console.log("Полный payload заказа:", orderPayload);
-
+  
       const response = await fetch(`${baseURL}/api/public/send-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderPayload),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Ошибка: ${response.status}`);
       }
-
+  
       setIsOrderSent(true);
       setCartItems([]);
       localStorage.removeItem("cartItems");
@@ -548,7 +546,6 @@ function Products() {
       alert(error.message || "Ошибка при отправке заказа");
     }
   }, [cartItems, selectedBranch, isOrderSection, orderDetails, deliveryDetails, discount, promoCode, fetchOrderHistory, validateFields]);
-
   const calculateDiscountedPrice = useCallback((price) => {
     const validPrice = Number(price) || 0;
     return validPrice * (1 - discount / 100);
