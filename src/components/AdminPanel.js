@@ -16,6 +16,7 @@ function AdminPanel() {
   const [priceSingle, setPriceSingle] = useState("");
   const [priceFieldsCount, setPriceFieldsCount] = useState(1);
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]); // Добавлено для скидок
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
@@ -35,7 +36,7 @@ function AdminPanel() {
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState(""); // "" означает "все филиалы"
+  const [selectedBranch, setSelectedBranch] = useState("");
   const [categories, setCategories] = useState([]);
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -54,6 +55,9 @@ function AdminPanel() {
   const [categoryFormData, setCategoryFormData] = useState({
     name: "",
   });
+  const [discounts, setDiscounts] = useState([]);
+  const [selectedProductForDiscount, setSelectedProductForDiscount] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("");
 
   const formRef = useRef(null);
   const navigate = useNavigate();
@@ -74,6 +78,9 @@ function AdminPanel() {
         return;
       }
       try {
+        if (!navigator.onLine) {
+          throw new Error("Нет подключения к интернету");
+        }
         const response = await fetch(`${baseURL}/products`, {
           headers: { Authorization: `Bearer ${storedToken}` },
         });
@@ -86,7 +93,7 @@ function AdminPanel() {
         setIsAuthenticated(false);
         localStorage.removeItem("token");
         setToken("");
-        setError("Токен недействителен. Войдите снова.");
+        setError(err.message || "Токен недействителен. Войдите снова.");
         navigate("/admin-login");
       }
     };
@@ -95,6 +102,9 @@ function AdminPanel() {
 
   const fetchInitialData = async (authToken) => {
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const headers = { Authorization: `Bearer ${authToken}` };
       const [
         branchesRes,
@@ -103,6 +113,7 @@ function AdminPanel() {
         promoCodesRes,
         storiesRes,
         productsRes,
+        discountsRes,
       ] = await Promise.all([
         fetch(`${baseURL}/branches`, { headers }),
         fetch(`${baseURL}/categories`, { headers }),
@@ -110,6 +121,7 @@ function AdminPanel() {
         fetch(`${baseURL}/promo-codes`, { headers }),
         fetch(`${baseURL}/stories`, { headers }),
         fetch(`${baseURL}/products`, { headers }),
+        fetch(`${baseURL}/discounts`, { headers }),
       ]);
 
       const branchesData = await branchesRes.json();
@@ -118,6 +130,7 @@ function AdminPanel() {
       const promoCodesData = await promoCodesRes.json();
       const storiesData = await storiesRes.json();
       const productsData = await productsRes.json();
+      const discountsData = await discountsRes.json();
 
       if (!branchesRes.ok) throw new Error("Ошибка загрузки филиалов");
       if (!categoriesRes.ok) throw new Error("Ошибка загрузки категорий");
@@ -125,6 +138,7 @@ function AdminPanel() {
       if (!promoCodesRes.ok) throw new Error("Ошибка загрузки промокодов");
       if (!storiesRes.ok) throw new Error("Ошибка загрузки историй");
       if (!productsRes.ok) throw new Error("Ошибка загрузки продуктов");
+      if (!discountsRes.ok) throw new Error("Ошибка загрузки скидок");
 
       setBranches(Array.isArray(branchesData) ? branchesData : []);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
@@ -140,6 +154,8 @@ function AdminPanel() {
       setPromoCodeList(Array.isArray(promoCodesData) ? promoCodesData : []);
       setStories(Array.isArray(storiesData) ? storiesData : []);
       setProducts(Array.isArray(productsData) ? productsData : []);
+      setAllProducts(Array.isArray(productsData) ? productsData : []); // Сохраняем все продукты
+      setDiscounts(Array.isArray(discountsData) ? discountsData : []);
     } catch (error) {
       console.error("Ошибка загрузки данных:", error);
       setError(error.message || "Не удалось загрузить данные");
@@ -179,6 +195,9 @@ function AdminPanel() {
     }
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const url = isStoryEditMode
         ? `${baseURL}/stories/${editingStoryId}`
         : `${baseURL}/stories`;
@@ -227,6 +246,9 @@ function AdminPanel() {
     if (!window.confirm("Вы уверены, что хотите удалить эту историю?")) return;
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const response = await fetch(`${baseURL}/stories/${storyId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -236,13 +258,16 @@ function AdminPanel() {
       alert("История удалена!");
     } catch (error) {
       console.error("Ошибка при удалении истории:", error);
-      alert("Произошла ошибка при удалении истории");
+      alert(error.message || "Произошла ошибка при удалении истории");
     }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const response = await fetch(`${baseURL}/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -262,7 +287,7 @@ function AdminPanel() {
       setPassword("");
     } catch (error) {
       console.error("Ошибка входа:", error);
-      setError(error.message);
+      setError(error.message || "Произошла ошибка при входе");
     }
   };
 
@@ -340,6 +365,9 @@ function AdminPanel() {
 
   const saveBranch = async () => {
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const method = currentBranch ? "PUT" : "POST";
       const url = currentBranch
         ? `${baseURL}/branches/${currentBranch.id}`
@@ -376,6 +404,9 @@ function AdminPanel() {
     if (!window.confirm("Вы уверены, что хотите удалить этот филиал?")) return;
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const response = await fetch(`${baseURL}/branches/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -386,7 +417,7 @@ function AdminPanel() {
       alert("Филиал успешно удалён!");
     } catch (error) {
       console.error("Ошибка:", error);
-      alert("Ошибка при удалении филиала");
+      alert(error.message || "Ошибка при удалении филиала");
     }
   };
 
@@ -416,6 +447,9 @@ function AdminPanel() {
 
   const saveCategory = async () => {
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const method = currentCategory ? "PUT" : "POST";
       const url = currentCategory
         ? `${baseURL}/categories/${currentCategory.id}`
@@ -453,6 +487,9 @@ function AdminPanel() {
       return;
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const response = await fetch(`${baseURL}/categories/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -462,7 +499,7 @@ function AdminPanel() {
       alert("Категория успешно удалена!");
     } catch (error) {
       console.error("Ошибка:", error);
-      alert("Ошибка при удалении категории");
+      alert(error.message || "Ошибка при удалении категории");
     }
   };
 
@@ -473,6 +510,9 @@ function AdminPanel() {
     }
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const response = await fetch(`${baseURL}/promo-codes`, {
         method: "POST",
         headers: {
@@ -493,7 +533,7 @@ function AdminPanel() {
       alert("Промокод добавлен!");
     } catch (error) {
       console.error("Ошибка:", error);
-      alert("Ошибка при добавлении промокода");
+      alert(error.message || "Ошибка при добавлении промокода");
     }
   };
 
@@ -512,6 +552,9 @@ function AdminPanel() {
       return;
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const response = await fetch(`${baseURL}/promo-codes/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -521,7 +564,7 @@ function AdminPanel() {
       alert("Промокод удалён!");
     } catch (error) {
       console.error("Ошибка:", error);
-      alert("Ошибка при удалении промокода");
+      alert(error.message || "Ошибка при удалении промокода");
     }
   };
 
@@ -529,16 +572,20 @@ function AdminPanel() {
     if (!window.confirm("Вы уверены, что хотите удалить этот продукт?")) return;
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const response = await fetch(`${baseURL}/products/${productId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Ошибка удаления продукта");
       setProducts((prev) => prev.filter((p) => p.id !== productId));
+      setAllProducts((prev) => prev.filter((p) => p.id !== productId)); // Обновляем allProducts
       alert("Продукт успешно удалён!");
     } catch (error) {
       console.error("Ошибка при удалении:", error);
-      alert("Произошла ошибка при удалении продукта");
+      alert(error.message || "Произошла ошибка при удалении продукта");
     }
   };
 
@@ -599,6 +646,9 @@ function AdminPanel() {
     }
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const url = editMode
         ? `${baseURL}/products/${editingProductId}`
         : `${baseURL}/products`;
@@ -620,9 +670,13 @@ function AdminPanel() {
         setProducts((prev) =>
           prev.map((p) => (p.id === editingProductId ? newProduct : p))
         );
+        setAllProducts((prev) =>
+          prev.map((p) => (p.id === editingProductId ? newProduct : p))
+        );
         alert("Продукт обновлён!");
       } else {
         setProducts((prev) => [...prev, newProduct]);
+        setAllProducts((prev) => [...prev, newProduct]);
         alert("Продукт добавлен!");
       }
       setImagePreview(getImageUrl(newProduct.image));
@@ -641,6 +695,9 @@ function AdminPanel() {
     if (!window.confirm("Вы уверены, что хотите удалить пользователя?")) return;
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const response = await fetch(`${baseURL}/users/${userId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -650,7 +707,7 @@ function AdminPanel() {
       alert("Пользователь удалён!");
     } catch (error) {
       console.error("Ошибка удаления:", error);
-      alert("Произошла ошибка");
+      alert(error.message || "Произошла ошибка при удалении пользователя");
     }
   };
 
@@ -666,6 +723,9 @@ function AdminPanel() {
     }
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
       const response = await fetch(`${baseURL}/users/${userId}/promo`, {
         method: "POST",
         headers: {
@@ -681,7 +741,7 @@ function AdminPanel() {
       alert(`Промокод отправлен: ${data.promoCode}`);
     } catch (error) {
       console.error("Ошибка промокода:", error);
-      alert("Ошибка при отправке промокода");
+      alert(error.message || "Ошибка при отправке промокода");
     }
   };
 
@@ -698,7 +758,7 @@ function AdminPanel() {
     setPriceSingle(product.price_single || "");
     setImage(null);
     setImagePreview(getImageUrl(product.image));
-    setSelectedBranch(product.branch_id); // Устанавливаем филиал редактируемого продукта
+    setSelectedBranch(product.branch_id);
 
     let count = 0;
     if (product.price_small) count++;
@@ -708,6 +768,63 @@ function AdminPanel() {
 
     if (formRef.current) {
       formRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleAddDiscount = async () => {
+    if (!selectedProductForDiscount || !discountPercent) {
+      alert("Выберите продукт и укажите процент скидки!");
+      return;
+    }
+    if (discountPercent < 1 || discountPercent > 100) {
+      alert("Процент скидки должен быть от 1 до 100!");
+      return;
+    }
+
+    try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
+      const response = await fetch(`${baseURL}/discounts`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: selectedProductForDiscount,
+          discountPercent,
+        }),
+      });
+      if (!response.ok) throw new Error("Ошибка добавления скидки");
+      const data = await response.json();
+      setDiscounts([...discounts, data]);
+      setSelectedProductForDiscount("");
+      setDiscountPercent("");
+      alert("Скидка добавлена!");
+    } catch (error) {
+      console.error("Ошибка:", error);
+      alert(error.message || "Ошибка при добавлении скидки");
+    }
+  };
+
+  const handleDeleteDiscount = async (moderatorId) => {
+    if (!window.confirm("Вы уверены, что хотите удалить эту скидку?")) return;
+
+    try {
+      if (!navigator.onLine) {
+        throw new Error("Нет подключения к интернету");
+      }
+      const response = await fetch(`${baseURL}/discounts/${moderatorId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Ошибка удаления скидки");
+      setDiscounts(discounts.filter((d) => d.id !== moderatorId));
+      alert("Скидка удалена!");
+    } catch (error) {
+      console.error("Ошибка:", error);
+      alert(error.message || "Ошибка при удалении скидки");
     }
   };
 
@@ -1160,6 +1277,72 @@ function AdminPanel() {
     );
   };
 
+  const renderDiscountsSection = () => {
+    if (allProducts.length === 0) {
+      return (
+        <div className="discounts-section">
+          <h2>Скидки</h2>
+          <p>Нет доступных продуктов для добавления скидок.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="discounts-section">
+        <h2>Скидки</h2>
+        <div className="discount-form">
+          <select
+            value={selectedProductForDiscount}
+            onChange={(e) => setSelectedProductForDiscount(e.target.value)}
+          >
+            <option value="">Выберите продукт</option>
+            {allProducts.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name} (Филиал: {branches.find((b) => b.id === product.branch_id)?.name || "Неизвестный"})
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            placeholder="Процент скидки"
+            min="1"
+            max="100"
+            value={discountPercent}
+            onChange={(e) => setDiscountPercent(e.target.value)}
+          />
+          <button onClick={handleAddDiscount}>Добавить скидку</button>
+        </div>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Продукт</th>
+              <th>Скидка (%)</th>
+              <th>Создано</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {discounts.map((discount) => (
+              <tr key={discount.id}>
+                <td>{discount.product_name}</td>
+                <td>{discount.discount_percent}</td>
+                <td>{new Date(discount.created_at).toLocaleString()}</td>
+                <td>
+                  <button
+                    className="delete-button"
+                    onClick={() => handleDeleteDiscount(discount.id)}
+                  >
+                    Удалить
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   const renderProductsByCategory = (categoryName) => {
     const filteredProducts = selectedBranch
       ? products.filter(
@@ -1196,73 +1379,20 @@ function AdminPanel() {
                   <h3>{product.name}</h3>
                   <p>{product.description || "Нет описания"}</p>
                   <p>Филиал: {branchName}</p>
-                  {product.effective_discount > 0 && (
-                    <p className="discount">
-                      Скидка: {product.effective_discount}%
-                    </p>
-                  )}
                   {hasMultipleSizes ? (
                     <div className="price-list">
                       {product.price_small && (
-                        <p>
-                          Маленький:{" "}
-                          {product.effective_discount > 0 ? (
-                            <>
-                              <span className="old-price">
-                                {product.price_small} сом
-                              </span>{" "}
-                              {product.final_price_small.toFixed(2)} сом
-                            </>
-                          ) : (
-                            `${product.price_small} сом`
-                          )}
-                        </p>
+                        <p>Маленький: {product.price_small} сом</p>
                       )}
                       {product.price_medium && (
-                        <p>
-                          Средний:{" "}
-                          {product.effective_discount > 0 ? (
-                            <>
-                              <span className="old-price">
-                                {product.price_medium} сом
-                              </span>{" "}
-                              {product.final_price_medium.toFixed(2)} сом
-                            </>
-                          ) : (
-                            `${product.price_medium} сом`
-                          )}
-                        </p>
+                        <p>Средний: {product.price_medium} сом</p>
                       )}
                       {product.price_large && (
-                        <p>
-                          Большой:{" "}
-                          {product.effective_discount > 0 ? (
-                            <>
-                              <span className="old-price">
-                                {product.price_large} сом
-                              </span>{" "}
-                              {product.final_price_large.toFixed(2)} сом
-                            </>
-                          ) : (
-                            `${product.price_large} сом`
-                          )}
-                        </p>
+                        <p>Большой: {product.price_large} сом</p>
                       )}
                     </div>
                   ) : product.price_single ? (
-                    <p>
-                      Цена:{" "}
-                      {product.effective_discount > 0 ? (
-                        <>
-                          <span className="old-price">
-                            {product.price_single} сом
-                          </span>{" "}
-                          {product.final_price_single.toFixed(2)} сом
-                        </>
-                      ) : (
-                        `${product.price_single} сом`
-                      )}
-                    </p>
+                    <p>Цена: {product.price_single} сом</p>
                   ) : (
                     <p>Цена не указана</p>
                   )}
@@ -1332,6 +1462,7 @@ function AdminPanel() {
       {renderBranchesSection()}
       {renderCategoriesSection()}
       {renderPromoCodesSection()}
+      {renderDiscountsSection()}
 
       <form ref={formRef} onSubmit={handleSubmit} className="admin-form">
         <h2>{editMode ? "Редактировать продукт" : "Добавить новый продукт"}</h2>
