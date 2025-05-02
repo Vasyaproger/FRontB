@@ -1,8 +1,8 @@
-import './App.css';
 import React, { useState, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
-
-import Loader from './components/Loader/Loader'; // Лоадер для отображения во время загрузки
+import { AuthProvider } from './components/AuthContext';
+import Loader from './components/Loader/Loader';
+import './App.css';
 
 // Динамическая загрузка компонентов
 const Nav = React.lazy(() => import('./components/Nav'));
@@ -15,82 +15,83 @@ const Aboud = React.lazy(() => import('./components/Aboud'));
 const LoginForm = React.lazy(() => import('./components/Login/Lofginform'));
 const Registerform = React.lazy(() => import('./components/Register/Registerform'));
 const ConfirmCodePage = React.lazy(() => import('./components/ConfirmCodePage/ConfirmCodePage'));
+const Profile = React.lazy(() => import('./components/Profile'));
 
-// Компонент для проверки текущего пути
 function NavWrapper({ children }) {
   const location = useLocation();
-  const showNav = location.pathname === '/'; // Показывать Nav только на главной странице
+  // Не показываем Nav и Footer на /profile, /register, /login, /Admin, /AdminPanel
+  const showNavAndFooter = !['/profile', '/register', '/login', '/Admin', '/AdminPanel'].includes(location.pathname);
+
   return (
     <>
-      {showNav && (
+      {showNavAndFooter && (
         <Suspense fallback={<Loader />}>
           <Nav />
         </Suspense>
       )}
       {children}
+      {showNavAndFooter && (
+        <Suspense fallback={<Loader />}>
+          <Footer />
+        </Suspense>
+      )}
     </>
   );
 }
 
 function App() {
-  const userId = 1; // Замените на нужное значение
+  const userId = 1;
   const [cartItems, setCartItems] = useState([]);
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [loading, setLoading] = useState(true);
 
   const updateCart = (id, quantity) => {
     setCartItems((prevItems) => {
       const updatedItems = prevItems
         .map((item) => (item.id === id ? { ...item, quantity: item.quantity + quantity } : item))
-        .filter((item) => item.quantity > 0); // Удаляем элементы с количеством 0
+        .filter((item) => item.quantity > 0);
       return updatedItems;
     });
   };
 
   useEffect(() => {
-    // Эмуляция загрузки данных
     const timer = setTimeout(() => {
       setLoading(false);
-    }, 3000); // Уменьшите время при необходимости
-
+    }, 3000);
     return () => clearTimeout(timer);
   }, []);
 
   if (loading) {
-    return <Loader />; // Показываем Loader, пока loading true
+    return <Loader />;
   }
 
   return (
-    <Router>
-      <NavWrapper>
-        <Suspense fallback={<Loader />}>
-          <Routes>
-            {/* Главная страница */}
-            <Route
-              path="/"
-              element={
-                <div>
-                  <Products updateCart={updateCart} />
-                  {/* <OrderPage cartItems={cartItems} updateCart={updateCart} />  */}
-                  <Footer />
-                  <Cart cartItems={cartItems} updateCart={updateCart} />
-                </div>
-              }
-            />
-            {/* Страницы Admin */}
-            <Route path="/Admin" element={<Adminlogin userId={userId} />} />
-            <Route path="/AdminPanel" element={<AdminPanel />} />
-            {/* Страница "О нас" */}
-            <Route path="/about" element={<Aboud />} />
-            {/* Авторизация */}
-            <Route path="/login" element={<LoginForm />} />
-            <Route path="/register" element={<Registerform />} />
-            <Route path="/confirm-code" element={<ConfirmCodePage />} />
-            {/* Перенаправление на главную */}
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </Suspense>
-      </NavWrapper>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <NavWrapper>
+          <Suspense fallback={<Loader />}>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <div>
+                    <Products updateCart={updateCart} />
+                    <Cart cartItems={cartItems} updateCart={updateCart} />
+                  </div>
+                }
+              />
+              <Route path="/Admin" element={<Adminlogin userId={userId} />} />
+              <Route path="/AdminPanel" element={<AdminPanel />} />
+              <Route path="/about" element={<Aboud />} />
+              <Route path="/login" element={<LoginForm />} />
+              <Route path="/register" element={<Registerform />} />
+              <Route path="/confirm-code" element={<ConfirmCodePage />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Suspense>
+        </NavWrapper>
+      </Router>
+    </AuthProvider>
   );
 }
 

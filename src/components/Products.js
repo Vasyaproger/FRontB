@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from "react";
 import debounce from "lodash/debounce";
 import Cart from "./Cart";
 import "../styles/Products.css";
@@ -22,45 +22,129 @@ const CATEGORY_PRIORITY = [
   "Горячие_напитки", "Напитки", "Лимонады", "Коктейли", "Бабл_ти", "Кофе",
 ];
 
-function Products() {
-  // Состояния
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [products, setProducts] = useState([]);
-  const [menuItems, setMenuItems] = useState({});
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedVariant, setSelectedVariant] = useState(null);
-  const [selectedTasteVariant, setSelectedTasteVariant] = useState(null);
-  const [cartItems, setCartItems] = useState(() => {
-    const savedCart = localStorage.getItem("cartItems");
-    return savedCart ? JSON.parse(savedCart) : [];
-  });
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState("");
-  const [isOrderSection, setIsOrderSection] = useState(false);
-  const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
-  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
-  const [viewedStories, setViewedStories] = useState(new Set());
-  const [progress, setProgress] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [orderDetails, setOrderDetails] = useState({ name: "", phone: "", comments: "" });
-  const [deliveryDetails, setDeliveryDetails] = useState({ name: "", phone: "", address: "", comments: "" });
-  const [isOrderSent, setIsOrderSent] = useState(false);
-  const [isCartNotification, setIsCartNotification] = useState(false);
-  const [promoCode, setPromoCode] = useState("");
-  const [discount, setDiscount] = useState(0);
-  const [formErrors, setFormErrors] = useState({});
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState(() => localStorage.getItem("selectedBranch") || null);
-  const [isBranchModalOpen, setIsBranchModalOpen] = useState(!localStorage.getItem("selectedBranch"));
-  const [error, setError] = useState(null);
-  const [orderHistory, setOrderHistory] = useState([]);
-  const [stories, setStories] = useState([]);
-  const [imageErrors, setImageErrors] = useState({});
+// Утилиты
+const getPriceOptions = (product) => {
+  const options = [];
+  const isDrink = product.category === "Напитки";
 
-  // Рефы
+  if (isDrink) {
+    if (product.price_small) options.push({ key: "small", price: product.price_small, label: "0.5 л" });
+    if (product.price_medium) options.push({ key: "medium", price: product.price_medium, label: "1 л" });
+    if (product.price_large) options.push({ key: "large", price: product.price_large, label: "1.5 л" });
+  } else {
+    if (product.price_small) options.push({ key: "small", price: product.price_small, label: "Маленькая" });
+    if (product.price_medium) options.push({ key: "medium", price: product.price_medium, label: "Средняя" });
+    if (product.price_large) options.push({ key: "large", price: product.price_large, label: "Большая" });
+  }
+
+  if (product.price_single) options.push({ key: "single", price: product.price_single, label: isDrink ? "Стандартный объем" : "Стандарт" });
+  if (product.price && !options.length) options.push({ key: "default", price: product.price, label: "Базовая" });
+
+  return options;
+};
+
+const calculateProductPrice = (price, discountPercent) => {
+  const basePrice = Number(price) || 0;
+  const discount = Number(discountPercent) || 0;
+  return basePrice * (1 - discount / 100);
+};
+
+const getMinPriceWithDiscount = (product) => {
+  const priceOptions = getPriceOptions(product);
+  const prices = priceOptions.map((option) => calculateProductPrice(option.price, product.discount_percent));
+  return Math.min(...prices);
+};
+
+const getDisplayPrice = (product, hasPriceVariants) => {
+  if (hasPriceVariants(product)) {
+    const minPrice = getMinPriceWithDiscount(product);
+    return product.discount_percent ? (
+      <>
+        <span className="original-price">
+          от {Math.min(...getPriceOptions(product).map((opt) => Number(opt.price)))} сом
+        </span>{" "}
+        <span className="discounted-price">от {minPrice.toFixed(2)} сом</span>
+      </>
+    ) : (
+      `от ${Math.min(...getPriceOptions(product).map((opt) => Number(opt.price)))} сом`
+    );
+  } else {
+    const price = Number(product.price_single || product.price || 0);
+    const discountedPrice = calculateProductPrice(price, product.discount_percent);
+    return product.discount_percent ? (
+      <>
+        <span className="original-price">{price.toFixed(2)} сом</span>{" "}
+        <span className="discounted-price">{discountedPrice.toFixed(2)} сом</span>
+      </>
+    ) : (
+      `${price.toFixed(2)} сом`
+    );
+  }
+};
+
+const getImageUrl = (imageKey) => {
+  if (!imageKey) return jpgPlaceholder;
+  const key = imageKey.split("/").pop();
+  return `${BASE_URL}/product-image/${key}`;
+};
+
+// Reducer для управления состоянием
+const initialState = {
+  isCartOpen: false,
+  products: [],
+  menuItems: {},
+  selectedProduct: null,
+  selectedVariant: null,
+  selectedTasteVariant: null,
+  cartItems: JSON.parse(localStorage.getItem("cartItems") || "[]"),
+  errorMessage: "",
+  isProductModalOpen: false,
+  activeCategory: "",
+  isOrderSection: false,
+  isStoryModalOpen: false,
+  currentStoryIndex: 0,
+  viewedStories: new Set(),
+  progress: 0,
+  searchQuery: "",
+  isLoading: false,
+  isPaused: false,
+  orderDetails: { name: "", phone: "", comments: "" },
+  deliveryDetails: { name: "", phone: "", address: "", comments: "" },
+  isOrderSent: false,
+  isCartNotification: false,
+  promoCode: "",
+  discount: 0,
+  formErrors: {},
+  branches: [],
+  selectedBranch: localStorage.getItem("selectedBranch") || null,
+  isBranchModalOpen: !localStorage.getItem("selectedBranch"),
+  error: null,
+  orderHistory: [],
+  stories: [],
+  imageErrors: {},
+};
+
+const reducer = (state, action) => {
+  switch (action.type) {
+    case "SET_STATE":
+      return { ...state, ...action.payload };
+    case "RESET_MODAL":
+      return {
+        ...state,
+        isProductModalOpen: false,
+        selectedProduct: null,
+        selectedVariant: null,
+        selectedTasteVariant: null,
+        errorMessage: "",
+      };
+    default:
+      return state;
+  }
+};
+
+// Главный компонент
+function Products() {
+  const [state, dispatch] = useReducer(reducer, initialState);
   const storyTimerRef = useRef(null);
   const modalRef = useRef(null);
   const menuRef = useRef(null);
@@ -68,35 +152,31 @@ function Products() {
 
   // API-запросы
   const fetchBranches = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+    dispatch({ type: "SET_STATE", payload: { isLoading: true, error: null } });
     try {
       const response = await fetch(`${BASE_URL}/api/public/branches`);
       if (!response.ok) throw new Error("Не удалось загрузить филиалы. Попробуйте позже.");
       const data = await response.json();
       if (!Array.isArray(data) || data.length === 0) throw new Error("Филиалы не найдены.");
-      setBranches(data);
-      if (!selectedBranch && data.length > 0) {
+      dispatch({ type: "SET_STATE", payload: { branches: data } });
+      if (!state.selectedBranch && data.length > 0) {
         handleBranchSelect(data[0].id.toString());
       }
     } catch (error) {
-      setError(error.message);
-      setBranches([]);
+      dispatch({ type: "SET_STATE", payload: { error: error.message, branches: [] } });
     } finally {
-      setIsLoading(false);
+      dispatch({ type: "SET_STATE", payload: { isLoading: false } });
     }
-  }, [selectedBranch]);
+  }, [state.selectedBranch]);
 
   const fetchProducts = useCallback(async () => {
-    if (!selectedBranch) return;
-    setIsLoading(true);
-    setError(null);
+    if (!state.selectedBranch) return;
+    dispatch({ type: "SET_STATE", payload: { isLoading: true, error: null } });
     try {
-      const response = await fetch(`${BASE_URL}/api/public/branches/${selectedBranch}/products`);
+      const response = await fetch(`${BASE_URL}/api/public/branches/${state.selectedBranch}/products`);
       if (!response.ok) throw new Error("Не удалось загрузить продукты. Попробуйте позже.");
       const data = await response.json();
       if (!Array.isArray(data)) throw new Error("Неверный формат данных о продуктах.");
-      setProducts(data);
       const groupedItems = data.reduce((acc, product) => {
         acc[product.category] = acc[product.category] || [];
         acc[product.category].push(product);
@@ -109,44 +189,42 @@ function Products() {
           return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
         })
       );
-      setMenuItems(sortedCategories);
+      dispatch({ type: "SET_STATE", payload: { products: data, menuItems: sortedCategories } });
       if (Object.keys(sortedCategories).length === 0) {
-        setError("Продукты не найдены для выбранного филиала.");
+        dispatch({ type: "SET_STATE", payload: { error: "Продукты не найдены для выбранного филиала." } });
       }
     } catch (error) {
-      setError(error.message);
-      setProducts([]);
-      setMenuItems({});
+      dispatch({ type: "SET_STATE", payload: { error: error.message, products: [], menuItems: {} } });
     } finally {
-      setIsLoading(false);
+      dispatch({ type: "SET_STATE", payload: { isLoading: false } });
     }
-  }, [selectedBranch]);
+  }, [state.selectedBranch]);
 
   const fetchStories = useCallback(async () => {
-    setIsLoading(true);
+    dispatch({ type: "SET_STATE", payload: { isLoading: true } });
     try {
       const response = await fetch(`${BASE_URL}/api/public/stories`);
       if (!response.ok) throw new Error("Не удалось загрузить истории.");
       const data = await response.json();
-      setStories(Array.isArray(data) ? data : []);
+      dispatch({ type: "SET_STATE", payload: { stories: Array.isArray(data) ? data : [] } });
     } catch (error) {
-      setError(error.message);
+      dispatch({ type: "SET_STATE", payload: { error: error.message } });
     } finally {
-      setIsLoading(false);
+      dispatch({ type: "SET_STATE", payload: { isLoading: false } });
     }
   }, []);
 
   const fetchOrderHistory = useCallback(async () => {
-    if (!selectedBranch) return;
+    if (!state.selectedBranch) return;
     try {
-      const response = await fetch(`${BASE_URL}/api/public/branches/${selectedBranch}/orders`);
+      const response = await fetch(`${BASE_URL}/api/public/branches/${state.selectedBranch}/orders`);
       if (!response.ok) throw new Error("Не удалось загрузить историю заказов.");
       const data = await response.json();
-      setOrderHistory(Array.isArray(data) ? data : []);
+      dispatch({ type: "SET_STATE", payload: { orderHistory: Array.isArray(data) ? data : [] } });
     } catch (error) {
-      setError(error.message);
+      dispatch({ type: "SET_STATE", payload: { error: error.message } });
     }
-  }, [selectedBranch]);
+  }, [state.selectedBranch]);
 
   // Инициализация данных
   useEffect(() => {
@@ -155,16 +233,16 @@ function Products() {
   }, [fetchBranches, fetchStories]);
 
   useEffect(() => {
-    if (selectedBranch) {
+    if (state.selectedBranch) {
       fetchProducts();
       fetchOrderHistory();
     }
-  }, [selectedBranch, fetchProducts, fetchOrderHistory]);
+  }, [state.selectedBranch, fetchProducts, fetchOrderHistory]);
 
   // Сохранение корзины
   useEffect(() => {
-    localStorage.setItem("cartItems", JSON.stringify(cartItems));
-  }, [cartItems]);
+    localStorage.setItem("cartItems", JSON.stringify(state.cartItems));
+  }, [state.cartItems]);
 
   // Обработка прокрутки для активной категории
   useEffect(() => {
@@ -179,25 +257,25 @@ function Products() {
           }
         }
       });
-      if (currentCategory && currentCategory !== activeCategory) {
-        setActiveCategory(currentCategory);
+      if (currentCategory && currentCategory !== state.activeCategory) {
+        dispatch({ type: "SET_STATE", payload: { activeCategory: currentCategory } });
       }
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [activeCategory]);
+  }, [state.activeCategory]);
 
   useEffect(() => {
-    if (!menuRef.current || !activeCategory) return;
-    const activeItem = menuRef.current.querySelector(`a[href="#${activeCategory}"]`);
+    if (!menuRef.current || !state.activeCategory) return;
+    const activeItem = menuRef.current.querySelector(`a[href="#${state.activeCategory}"]`);
     if (activeItem) {
       activeItem.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
     }
-  }, [activeCategory]);
+  }, [state.activeCategory]);
 
-  // Блокировка прокрутки
+  // Блокировка прокрутки и управление фокусом
   useEffect(() => {
-    if (isProductModalOpen || isCartOpen || isStoryModalOpen || isBranchModalOpen) {
+    if (state.isProductModalOpen || state.isCartOpen || state.isStoryModalOpen || state.isBranchModalOpen) {
       document.body.style.overflow = "hidden";
       modalRef.current?.focus();
     } else {
@@ -206,35 +284,35 @@ function Products() {
     return () => {
       document.body.style.overflow = "auto";
     };
-  }, [isProductModalOpen, isCartOpen, isStoryModalOpen, isBranchModalOpen]);
+  }, [state.isProductModalOpen, state.isCartOpen, state.isStoryModalOpen, state.isBranchModalOpen]);
 
   // Закрытие модальных окон по Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        if (isProductModalOpen) closeProductModal();
-        if (isCartOpen) handleCartClose();
-        if (isStoryModalOpen) closeStoryModal();
-        if (isBranchModalOpen) setIsBranchModalOpen(false);
+        if (state.isProductModalOpen) closeProductModal();
+        if (state.isCartOpen) handleCartClose();
+        if (state.isStoryModalOpen) closeStoryModal();
+        if (state.isBranchModalOpen) dispatch({ type: "SET_STATE", payload: { isBranchModalOpen: false } });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isProductModalOpen, isCartOpen, isStoryModalOpen, isBranchModalOpen]);
+  }, [state.isProductModalOpen, state.isCartOpen, state.isStoryModalOpen, state.isBranchModalOpen]);
 
   // Логика сторис
   const startStoryTimer = useCallback(() => {
-    if (isPaused) return;
-    clearStoryTimer();
+    if (state.isPaused) return;
+    if (storyTimerRef.current) clearInterval(storyTimerRef.current);
     const steps = STORY_DURATION / STORY_INTERVAL;
     let step = 0;
 
     storyTimerRef.current = setInterval(() => {
       step++;
-      setProgress((step / steps) * 100);
+      dispatch({ type: "SET_STATE", payload: { progress: (step / steps) * 100 } });
       if (step >= steps) goToNextStory();
     }, STORY_INTERVAL);
-  }, [isPaused]);
+  }, [state.isPaused]);
 
   const clearStoryTimer = useCallback(() => {
     if (storyTimerRef.current) {
@@ -244,53 +322,49 @@ function Products() {
   }, []);
 
   const openStoryModal = useCallback((index) => {
-    setCurrentStoryIndex(index);
-    setIsStoryModalOpen(true);
-    setProgress(0);
+    dispatch({ type: "SET_STATE", payload: { currentStoryIndex: index, isStoryModalOpen: true, progress: 0 } });
     startStoryTimer();
   }, [startStoryTimer]);
 
   const closeStoryModal = useCallback(() => {
-    setIsStoryModalOpen(false);
-    setProgress(0);
+    dispatch({ type: "SET_STATE", payload: { isStoryModalOpen: false, progress: 0 } });
     clearStoryTimer();
   }, [clearStoryTimer]);
 
   const goToNextStory = useCallback(() => {
-    setViewedStories((prev) => new Set(prev).add(currentStoryIndex));
-    if (currentStoryIndex < stories.length - 1) {
-      setCurrentStoryIndex(currentStoryIndex + 1);
-      setProgress(0);
-      startStoryTimer();
-    } else {
+    dispatch({ type: "SET_STATE", payload: {
+      viewedStories: new Set(state.viewedStories).add(state.currentStoryIndex),
+      currentStoryIndex: state.currentStoryIndex < state.stories.length - 1 ? state.currentStoryIndex + 1 : state.currentStoryIndex,
+      progress: 0,
+    } });
+    if (state.currentStoryIndex >= state.stories.length - 1) {
       closeStoryModal();
+    } else {
+      startStoryTimer();
     }
-  }, [currentStoryIndex, stories.length, startStoryTimer, closeStoryModal]);
+  }, [state.currentStoryIndex, state.stories.length, startStoryTimer, closeStoryModal]);
 
   const goToPrevStory = useCallback(() => {
-    if (currentStoryIndex > 0) {
-      setCurrentStoryIndex(currentStoryIndex - 1);
-      setProgress(0);
+    if (state.currentStoryIndex > 0) {
+      dispatch({ type: "SET_STATE", payload: { currentStoryIndex: state.currentStoryIndex - 1, progress: 0 } });
       startStoryTimer();
     }
-  }, [currentStoryIndex, startStoryTimer]);
+  }, [state.currentStoryIndex, startStoryTimer]);
 
   const storySwipeHandlers = useSwipeable({
     onSwipedLeft: goToNextStory,
     onSwipedRight: goToPrevStory,
     onTap: () => {
-      setIsPaused((prev) => {
-        if (!prev) clearStoryTimer();
-        else startStoryTimer();
-        return !prev;
-      });
+      dispatch({ type: "SET_STATE", payload: { isPaused: !state.isPaused } });
+      if (!state.isPaused) clearStoryTimer();
+      else startStoryTimer();
     },
     preventScrollOnSwipe: true,
   });
 
   // Обработчики корзины
-  const handleCartOpen = useCallback(() => setIsCartOpen(true), []);
-  const handleCartClose = useCallback(() => setIsCartOpen(false), []);
+  const handleCartOpen = useCallback(() => dispatch({ type: "SET_STATE", payload: { isCartOpen: true } }), []);
+  const handleCartClose = useCallback(() => dispatch({ type: "SET_STATE", payload: { isCartOpen: false } }), []);
 
   // Обработка продукта
   const hasPriceVariants = useCallback((product) => {
@@ -308,153 +382,99 @@ function Products() {
     return product.variants && product.variants.length > 0;
   }, []);
 
-  const getPriceOptions = useCallback((product) => {
-    const options = [];
-    const isDrink = product.category === "Напитки";
-
-    if (isDrink) {
-      if (product.price_small) options.push({ key: "small", price: product.price_small, label: "0.5 л" });
-      if (product.price_medium) options.push({ key: "medium", price: product.price_medium, label: "1 л" });
-      if (product.price_large) options.push({ key: "large", price: product.price_large, label: "1.5 л" });
-    } else {
-      if (product.price_small) options.push({ key: "small", price: product.price_small, label: "Маленькая" });
-      if (product.price_medium) options.push({ key: "medium", price: product.price_medium, label: "Средняя" });
-      if (product.price_large) options.push({ key: "large", price: product.price_large, label: "Большая" });
-    }
-
-    if (product.price_single) options.push({ key: "single", price: product.price_single, label: isDrink ? "Стандартный объем" : "Стандарт" });
-    if (product.price && !options.length) options.push({ key: "default", price: product.price, label: "Базовая" });
-
-    return options;
-  }, []);
-
-  const calculateProductPrice = useCallback((price, discountPercent) => {
-    const basePrice = Number(price) || 0;
-    const discount = Number(discountPercent) || 0;
-    return basePrice * (1 - discount / 100);
-  }, []);
-
-  const getMinPriceWithDiscount = useCallback((product) => {
-    const priceOptions = getPriceOptions(product);
-    const prices = priceOptions.map((option) => calculateProductPrice(option.price, product.discount_percent));
-    return Math.min(...prices);
-  }, [getPriceOptions, calculateProductPrice]);
-
-  const getDisplayPrice = useCallback((product) => {
-    if (hasPriceVariants(product)) {
-      const minPrice = getMinPriceWithDiscount(product);
-      return product.discount_percent ? (
-        <>
-          <span className="original-price">
-            от {Math.min(...getPriceOptions(product).map((opt) => Number(opt.price)))} сом
-          </span>{" "}
-          <span className="discounted-price">от {minPrice.toFixed(2)} сом</span>
-        </>
-      ) : (
-        `от ${Math.min(...getPriceOptions(product).map((opt) => Number(opt.price)))} сом`
-      );
-    } else {
-      const price = Number(product.price_single || product.price || 0);
-      const discountedPrice = calculateProductPrice(price, product.discount_percent);
-      return product.discount_percent ? (
-        <>
-          <span className="original-price">{price.toFixed(2)} сом</span>{" "}
-          <span className="discounted-price">{discountedPrice.toFixed(2)} сом</span>
-        </>
-      ) : (
-        `${price.toFixed(2)} сом`
-      );
-    }
-  }, [hasPriceVariants, getPriceOptions, calculateProductPrice, getMinPriceWithDiscount]);
-
   const handleProductClick = useCallback((product, category) => {
-    setSelectedProduct({ product, category });
-    setSelectedVariant(null);
-    setSelectedTasteVariant(null);
-    setIsProductModalOpen(true);
+    dispatch({ type: "SET_STATE", payload: {
+      selectedProduct: { product, category },
+      selectedVariant: null,
+      selectedTasteVariant: null,
+      isProductModalOpen: true,
+      errorMessage: "",
+    } });
   }, []);
 
   const handleAddToCart = useCallback(() => {
     try {
-      if (!selectedProduct?.product) return;
+      if (!state.selectedProduct?.product) return;
 
-      const priceOptions = getPriceOptions(selectedProduct.product);
-      if (hasPriceVariants(selectedProduct.product) && !selectedVariant) {
+      const priceOptions = getPriceOptions(state.selectedProduct.product);
+      if (hasPriceVariants(state.selectedProduct.product) && !state.selectedVariant) {
         throw new Error("Выберите вариант размера.");
       }
-      if (hasTasteVariants(selectedProduct.product) && !selectedTasteVariant) {
+      if (hasTasteVariants(state.selectedProduct.product) && !state.selectedTasteVariant) {
         throw new Error("Выберите вариант вкуса.");
       }
 
-      const selectedOption = selectedVariant
-        ? priceOptions.find((opt) => opt.key === selectedVariant)
+      const selectedOption = state.selectedVariant
+        ? priceOptions.find((opt) => opt.key === state.selectedVariant)
         : priceOptions[0];
 
-      const selectedTaste = selectedTasteVariant
-        ? selectedProduct.product.variants.find((variant) => variant.name === selectedTasteVariant)
+      const selectedTaste = state.selectedTasteVariant
+        ? state.selectedProduct.product.variants.find((variant) => variant.name === state.selectedTasteVariant)
         : null;
 
       const basePrice = Number(selectedOption.price) || 0;
-      const discountedBasePrice = calculateProductPrice(basePrice, selectedProduct.product.discount_percent);
+      const discountedBasePrice = calculateProductPrice(basePrice, state.selectedProduct.product.discount_percent);
       const additionalPrice = selectedTaste ? Number(selectedTaste.additionalPrice) || 0 : 0;
       const totalPrice = discountedBasePrice + additionalPrice;
 
       const itemToAdd = {
-        id: priceOptions.length > 1 || hasTasteVariants(selectedProduct.product)
-          ? `${selectedProduct.product.id}-${selectedOption.key}-${selectedTasteVariant || "default"}`
-          : selectedProduct.product.id,
-        name: priceOptions.length > 1 || hasTasteVariants(selectedProduct.product)
-          ? `${selectedProduct.product.name} (${selectedOption.label}${selectedTasteVariant ? `, ${selectedTasteVariant}` : ""})`
-          : selectedProduct.product.name,
+        id: priceOptions.length > 1 || hasTasteVariants(state.selectedProduct.product)
+          ? `${state.selectedProduct.product.id}-${selectedOption.key}-${state.selectedTasteVariant || "default"}`
+          : state.selectedProduct.product.id,
+        name: priceOptions.length > 1 || hasTasteVariants(state.selectedProduct.product)
+          ? `${state.selectedProduct.product.name} (${selectedOption.label}${state.selectedTasteVariant ? `, ${state.selectedTasteVariant}` : ""})`
+          : state.selectedProduct.product.name,
         price: totalPrice,
         originalPrice: basePrice + additionalPrice,
-        discountPercent: selectedProduct.product.discount_percent || 0,
+        discountPercent: state.selectedProduct.product.discount_percent || 0,
         quantity: 1,
-        image: selectedProduct.product.image_url,
+        image: state.selectedProduct.product.image_url,
       };
 
-      setCartItems((prevItems) => {
-        const existingItemIndex = prevItems.findIndex((item) => item.id === itemToAdd.id);
-        if (existingItemIndex > -1) {
-          return prevItems.map((item, index) =>
-            index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
-          );
-        }
-        return [...prevItems, itemToAdd];
-      });
+      dispatch({ type: "SET_STATE", payload: {
+        cartItems: state.cartItems.find((item) => item.id === itemToAdd.id)
+          ? state.cartItems.map((item) =>
+              item.id === itemToAdd.id ? { ...item, quantity: item.quantity + 1 } : item
+            )
+          : [...state.cartItems, itemToAdd],
+        isCartNotification: true,
+      } });
 
-      setIsCartNotification(true);
-      setTimeout(() => setIsCartNotification(false), NOTIFICATION_DURATION);
+      setTimeout(() => dispatch({ type: "SET_STATE", payload: { isCartNotification: false } }), NOTIFICATION_DURATION);
       closeProductModal();
     } catch (error) {
-      setErrorMessage(error.message);
+      dispatch({ type: "SET_STATE", payload: { errorMessage: error.message } });
     }
-  }, [selectedProduct, selectedVariant, selectedTasteVariant, getPriceOptions, hasPriceVariants, hasTasteVariants, calculateProductPrice]);
+  }, [state.selectedProduct, state.selectedVariant, state.selectedTasteVariant, state.cartItems]);
 
   const handleQuantityChange = useCallback((itemId, change) => {
-    setCartItems((prevItems) =>
-      prevItems
+    dispatch({ type: "SET_STATE", payload: {
+      cartItems: state.cartItems
         .map((item) => item.id === itemId ? { ...item, quantity: Math.max(0, item.quantity + change) } : item)
-        .filter((item) => item.quantity > 0)
-    );
-  }, []);
+        .filter((item) => item.quantity > 0),
+    } });
+  }, [state.cartItems]);
 
   // Обработчики форм
   const handleOrderChange = useCallback((e) => {
     const { name, value } = e.target;
-    setOrderDetails((prev) => ({ ...prev, [name]: value }));
-    setFormErrors((prev) => ({ ...prev, [name]: "" }));
-  }, []);
+    dispatch({ type: "SET_STATE", payload: {
+      orderDetails: { ...state.orderDetails, [name]: value },
+      formErrors: { ...state.formErrors, [name]: "" },
+    } });
+  }, [state.orderDetails, state.formErrors]);
 
   const handleDeliveryChange = useCallback((e) => {
     const { name, value } = e.target;
-    setDeliveryDetails((prev) => ({ ...prev, [name]: value }));
-    setFormErrors((prev) => ({ ...prev, [name]: "" }));
-  }, []);
+    dispatch({ type: "SET_STATE", payload: {
+      deliveryDetails: { ...state.deliveryDetails, [name]: value },
+      formErrors: { ...state.formErrors, [name]: "" },
+    } });
+  }, [state.deliveryDetails, state.formErrors]);
 
   // Промокод
   const handlePromoCodeSubmit = useCallback(async () => {
-    if (!promoCode) {
+    if (!state.promoCode) {
       alert("Введите промокод.");
       return;
     }
@@ -462,19 +482,19 @@ function Products() {
       const response = await fetch(`${BASE_URL}/api/public/validate-promo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ promoCode }),
+        body: JSON.stringify({ promoCode: state.promoCode }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Неверный промокод.");
       }
       const data = await response.json();
-      setDiscount(Number(data.discount) || 0);
+      dispatch({ type: "SET_STATE", payload: { discount: Number(data.discount) || 0 } });
       alert(`Промокод применен! Скидка ${data.discount}%`);
     } catch (error) {
       alert(error.message);
     }
-  }, [promoCode]);
+  }, [state.promoCode]);
 
   // Валидация
   const validatePhone = useCallback((phone) => {
@@ -484,34 +504,34 @@ function Products() {
 
   const validateFields = useCallback(() => {
     const errors = {};
-    if (isOrderSection) {
-      if (!orderDetails.name) errors.name = "Заполните имя";
-      if (!orderDetails.phone) errors.phone = "Заполните телефон";
-      else if (!validatePhone(orderDetails.phone)) errors.phone = "Неверный формат телефона (например, +996123456789)";
+    if (state.isOrderSection) {
+      if (!state.orderDetails.name) errors.name = "Заполните имя";
+      if (!state.orderDetails.phone) errors.phone = "Заполните телефон";
+      else if (!validatePhone(state.orderDetails.phone)) errors.phone = "Неверный формат телефона (например, +996123456789)";
     } else {
-      if (!deliveryDetails.name) errors.name = "Заполните имя";
-      if (!deliveryDetails.phone) errors.phone = "Заполните телефон";
-      else if (!validatePhone(deliveryDetails.phone)) errors.phone = "Неверный формат телефона (например, +996123456789)";
-      if (!deliveryDetails.address) errors.address = "Заполните адрес";
+      if (!state.deliveryDetails.name) errors.name = "Заполните имя";
+      if (!state.deliveryDetails.phone) errors.phone = "Заполните телефон";
+      else if (!validatePhone(state.deliveryDetails.phone)) errors.phone = "Неверный формат телефона (например, +996123456789)";
+      if (!state.deliveryDetails.address) errors.address = "Заполните адрес";
     }
-    setFormErrors(errors);
+    dispatch({ type: "SET_STATE", payload: { formErrors: errors } });
     return Object.keys(errors).length === 0;
-  }, [isOrderSection, orderDetails, deliveryDetails, validatePhone]);
+  }, [state.isOrderSection, state.orderDetails, state.deliveryDetails]);
 
   const sendOrderToServer = useCallback(async () => {
-    if (cartItems.length === 0) {
+    if (state.cartItems.length === 0) {
       alert("Корзина пуста!");
       return;
     }
-    if (!selectedBranch) {
+    if (!state.selectedBranch) {
       alert("Выберите филиал!");
-      setIsBranchModalOpen(true);
+      dispatch({ type: "SET_STATE", payload: { isBranchModalOpen: true } });
       return;
     }
     if (!validateFields()) return;
 
     try {
-      const cartItemsWithPrices = cartItems.map((item) => ({
+      const cartItemsWithPrices = state.cartItems.map((item) => ({
         name: item.name,
         quantity: item.quantity,
         originalPrice: Number(item.originalPrice) || 0,
@@ -519,12 +539,12 @@ function Products() {
       }));
 
       const orderPayload = {
-        orderDetails: isOrderSection ? orderDetails : {},
-        deliveryDetails: !isOrderSection ? deliveryDetails : {},
+        orderDetails: state.isOrderSection ? state.orderDetails : {},
+        deliveryDetails: !state.isOrderSection ? state.deliveryDetails : {},
         cartItems: cartItemsWithPrices,
-        discount: discount || 0,
-        promoCode: promoCode || "",
-        branchId: parseInt(selectedBranch),
+        discount: state.discount || 0,
+        promoCode: state.promoCode || "",
+        branchId: parseInt(state.selectedBranch),
       };
 
       const response = await fetch(`${BASE_URL}/api/public/send-order`, {
@@ -538,110 +558,101 @@ function Products() {
         throw new Error(errorData.error || "Ошибка при отправке заказа.");
       }
 
-      setIsOrderSent(true);
-      setCartItems([]);
+      dispatch({ type: "SET_STATE", payload: {
+        isOrderSent: true,
+        cartItems: [],
+        promoCode: "",
+        discount: 0,
+        orderDetails: { name: "", phone: "", comments: "" },
+        deliveryDetails: { name: "", phone: "", address: "", comments: "" },
+      } });
       localStorage.removeItem("cartItems");
-      setPromoCode("");
-      setDiscount(0);
-      setOrderDetails({ name: "", phone: "", comments: "" });
-      setDeliveryDetails({ name: "", phone: "", address: "", comments: "" });
-      setTimeout(() => setIsOrderSent(false), NOTIFICATION_DURATION);
+      setTimeout(() => dispatch({ type: "SET_STATE", payload: { isOrderSent: false } }), NOTIFICATION_DURATION);
       fetchOrderHistory();
     } catch (error) {
       alert(error.message);
     }
-  }, [cartItems, selectedBranch, isOrderSection, orderDetails, deliveryDetails, discount, promoCode, fetchOrderHistory, validateFields]);
+  }, [state.cartItems, state.selectedBranch, state.isOrderSection, state.orderDetails, state.deliveryDetails, state.discount, state.promoCode, fetchOrderHistory]);
 
   const calculateTotal = useMemo(() => {
-    const total = cartItems.reduce((sum, item) => {
+    const total = state.cartItems.reduce((sum, item) => {
       const price = Number(item.originalPrice) || 0;
       return sum + price * item.quantity;
     }, 0);
-    const discountedTotal = cartItems.reduce((sum, item) => {
+    const discountedTotal = state.cartItems.reduce((sum, item) => {
       const price = Number(item.price) || 0;
       return sum + price * item.quantity;
     }, 0);
-    const finalTotal = discountedTotal * (1 - discount / 100);
+    const finalTotal = discountedTotal * (1 - state.discount / 100);
     return {
       total: total.toFixed(2),
       discountedTotal: finalTotal.toFixed(2),
     };
-  }, [cartItems, discount]);
+  }, [state.cartItems, state.discount]);
 
   const closeProductModal = useCallback(() => {
-    setIsProductModalOpen(false);
-    setTimeout(() => {
-      setSelectedProduct(null);
-      setSelectedVariant(null);
-      setSelectedTasteVariant(null);
-      setErrorMessage("");
-    }, 300);
+    dispatch({ type: "RESET_MODAL" });
   }, []);
 
   const handleBranchSelect = useCallback((branchId) => {
     const branchIdStr = branchId.toString();
-    setSelectedBranch(branchIdStr);
+    dispatch({ type: "SET_STATE", payload: {
+      selectedBranch: branchIdStr,
+      isBranchModalOpen: false,
+      products: [],
+      menuItems: {},
+      orderHistory: [],
+      cartItems: [],
+    } });
     localStorage.setItem("selectedBranch", branchIdStr);
-    setIsBranchModalOpen(false);
-    setProducts([]);
-    setMenuItems({});
-    setOrderHistory([]);
-    setCartItems([]);
     localStorage.removeItem("cartItems");
-  }, []);
-
-  const getImageUrl = useCallback((imageKey) => {
-    if (!imageKey) return jpgPlaceholder;
-    const key = imageKey.split("/").pop();
-    return `${BASE_URL}/product-image/${key}`;
   }, []);
 
   const cachedImageUrls = useMemo(() => {
     const urls = {};
-    products.forEach((product) => {
+    state.products.forEach((product) => {
       if (product.image_url) {
         urls[product.id] = getImageUrl(product.image_url);
       }
     });
-    stories.forEach((story) => {
+    state.stories.forEach((story) => {
       if (story.image) {
         urls[story.id] = story.image;
       }
     });
-    cartItems.forEach((item) => {
+    state.cartItems.forEach((item) => {
       if (item.image) {
         urls[item.id] = getImageUrl(item.image);
       }
     });
     return urls;
-  }, [products, stories, cartItems, getImageUrl]);
+  }, [state.products, state.stories, state.cartItems]);
 
-  const debouncedSetSearchQuery = useCallback(
-    debounce((value) => setSearchQuery(value), 300),
-    []
-  );
+  const debouncedSetSearchQuery = useMemo(() => debounce((value) => {
+    dispatch({ type: "SET_STATE", payload: { searchQuery: value } });
+  }, 300), []);
 
   const handleSearchChange = useCallback((e) => {
     debouncedSetSearchQuery(e.target.value);
   }, [debouncedSetSearchQuery]);
 
   const handleImageError = useCallback((id) => {
-    setImageErrors((prev) => ({ ...prev, [id]: true }));
-  }, []);
+    dispatch({ type: "SET_STATE", payload: { imageErrors: { ...state.imageErrors, [id]: true } } });
+  }, [state.imageErrors]);
 
   const handleImageLoad = useCallback((id) => {
-    setImageErrors((prev) => ({ ...prev, [id]: false }));
-  }, []);
+    dispatch({ type: "SET_STATE", payload: { imageErrors: { ...state.imageErrors, [id]: false } } });
+  }, [state.imageErrors]);
 
   // Фильтрация и сортировка
   const filteredProducts = useMemo(() => {
-    if (!products || products.length === 0) return [];
-    return products.filter((product) => {
+    if (!state.products || state.products.length === 0) return [];
+    return state.products.filter((product) => {
       if (!product || !product.name) return false;
       if (product.category === "Часто заказывают") return false;
-      return product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      return product.name.toLowerCase().includes(state.searchQuery.toLowerCase());
     });
-  }, [products, searchQuery]);
+  }, [state.products, state.searchQuery]);
 
   const groupedFilteredItems = useMemo(() => {
     return filteredProducts.reduce((acc, product) => {
@@ -663,24 +674,24 @@ function Products() {
   }, [groupedFilteredItems]);
 
   const bestSellers = useMemo(() => {
-    return products
+    return state.products
       .filter((product) => product.category === "Часто заказывают")
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [products]);
+  }, [state.products]);
 
   // Рендеринг
   return (
     <div className="menu-wrapper">
-      {isLoading && (
+      {state.isLoading && (
         <div className="loader">
           <span>Загрузка...</span>
         </div>
       )}
-      {error && <div className="error-message">{error}</div>}
+      {state.error && <div className="error-message">{state.error}</div>}
 
       {/* Модальное окно выбора филиала */}
-      {isBranchModalOpen && (
-        <div className={`modal-overlay ${isBranchModalOpen ? "open" : ""}`} aria-modal="true" role="dialog">
+      {state.isBranchModalOpen && (
+        <div className={`modal-overlay ${state.isBranchModalOpen ? "open" : ""}`} aria-modal="true" role="dialog">
           <div
             className="modal-content glass-effect"
             onClick={(e) => e.stopPropagation()}
@@ -689,10 +700,10 @@ function Products() {
           >
             <h2 className="modal-title">Выберите филиал</h2>
             <div className="branch-list">
-              {branches.map((branch) => (
+              {state.branches.map((branch) => (
                 <div
                   key={branch.id}
-                  className={`branch-item ${selectedBranch === branch.id.toString() ? "selected" : ""}`}
+                  className={`branch-item ${state.selectedBranch === branch.id.toString() ? "selected" : ""}`}
                   onClick={() => handleBranchSelect(branch.id)}
                   role="button"
                   tabIndex={0}
@@ -705,7 +716,7 @@ function Products() {
             </div>
             <button
               className="close-modal-button"
-              onClick={() => setIsBranchModalOpen(false)}
+              onClick={() => dispatch({ type: "SET_STATE", payload: { isBranchModalOpen: false } })}
               aria-label="Закрыть модальное окно"
             >
               <FiX size={24} />
@@ -727,7 +738,7 @@ function Products() {
             />
           </div>
         </div>
-        {selectedBranch && Object.keys(sortedFilteredCategories).length > 0 && (
+        {state.selectedBranch && Object.keys(sortedFilteredCategories).length > 0 && (
           <nav className="menu-nav" ref={menuRef}>
             <ul>
               {Object.keys(sortedFilteredCategories).map((category) =>
@@ -735,12 +746,13 @@ function Products() {
                   <li key={category}>
                     <a
                       href={`#${category}`}
-                      className={activeCategory === category ? "active" : ""}
+                      className={state.activeCategory === category ? "active" : ""}
                       onClick={(e) => {
                         e.preventDefault();
                         document.getElementById(category)?.scrollIntoView({ behavior: "smooth" });
+                        dispatch({ type: "SET_STATE", payload: { activeCategory: category } });
                       }}
-                      aria-current={activeCategory === category ? "page" : undefined}
+                      aria-current={state.activeCategory === category ? "page" : undefined}
                     >
                       {category}
                     </a>
@@ -754,31 +766,31 @@ function Products() {
 
       {/* Информация о филиале */}
       <div className="branch-info">
-        {selectedBranch && (
+        {state.selectedBranch && (
           <span
-            onClick={() => setIsBranchModalOpen(true)}
+            onClick={() => dispatch({ type: "SET_STATE", payload: { isBranchModalOpen: true } })}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => e.key === "Enter" && setIsBranchModalOpen(true)}
+            onKeyDown={(e) => e.key === "Enter" && dispatch({ type: "SET_STATE", payload: { isBranchModalOpen: true } })}
           >
-            {branches.find((b) => b.id.toString() === selectedBranch)?.name || "Филиал не выбран"}
+            {state.branches.find((b) => b.id.toString() === state.selectedBranch)?.name || "Филиал не выбран"}
             <FiChevronDown className="dropdown-icon" aria-hidden="true" />
           </span>
         )}
       </div>
 
       {/* Основной контент */}
-      {selectedBranch && (
+      {state.selectedBranch && (
         <div className="content-wrapper">
           {/* Секция сторис */}
-          {stories.length > 0 && (
+          {state.stories.length > 0 && (
             <div className="stories-section">
               <h2 className="section-title">Истории</h2>
               <div className="stories-list">
-                {stories.map((story, index) => (
+                {state.stories.map((story, index) => (
                   <div
                     key={story.id}
-                    className={`story-card ${viewedStories.has(index) ? "viewed" : ""}`}
+                    className={`story-card ${state.viewedStories.has(index) ? "viewed" : ""}`}
                     onClick={() => openStoryModal(index)}
                     role="button"
                     tabIndex={0}
@@ -802,37 +814,37 @@ function Products() {
           )}
 
           {/* Модальное окно сторис */}
-          {isStoryModalOpen && (
+          {state.isStoryModalOpen && (
             <div
-              className={`story-modal ${isStoryModalOpen ? "open" : ""}`}
+              className={`story-modal ${state.isStoryModalOpen ? "open" : ""}`}
               {...storySwipeHandlers}
               aria-modal="true"
               role="dialog"
             >
               <div className="story-content glass-effect" ref={modalRef} tabIndex={-1}>
                 <div className="story-progress">
-                  {stories.map((_, index) => (
+                  {state.stories.map((_, index) => (
                     <div key={index} className="progress-bar">
                       <div
                         className="progress-bar-fill"
                         style={{
-                          width: index === currentStoryIndex ? `${progress}%` : index < currentStoryIndex ? "100%" : "0%",
+                          width: index === state.currentStoryIndex ? `${state.progress}%` : index < state.currentStoryIndex ? "100%" : "0%",
                         }}
                       />
                     </div>
                   ))}
                 </div>
                 <LazyImage
-                  src={cachedImageUrls[stories[currentStoryIndex].id] || jpgPlaceholder}
-                  alt={`История от ${new Date(stories[currentStoryIndex].created_at).toLocaleDateString()}`}
+                  src={cachedImageUrls[state.stories[state.currentStoryIndex].id] || jpgPlaceholder}
+                  alt={`История от ${new Date(state.stories[state.currentStoryIndex].created_at).toLocaleDateString()}`}
                   placeholder={jpgPlaceholder}
                   className="story-image-full"
                   loading="lazy"
                   sizes="(max-width: 600px) 300px, 500px"
-                  onError={() => handleImageError(stories[currentStoryIndex].id)}
-                  onLoad={() => handleImageLoad(stories[currentStoryIndex].id)}
-                  onMouseEnter={() => setIsPaused(true)}
-                  onMouseLeave={() => setIsPaused(false)}
+                  onError={() => handleImageError(state.stories[state.currentStoryIndex].id)}
+                  onLoad={() => handleImageLoad(state.stories[state.currentStoryIndex].id)}
+                  onMouseEnter={() => dispatch({ type: "SET_STATE", payload: { isPaused: true } })}
+                  onMouseLeave={() => dispatch({ type: "SET_STATE", payload: { isPaused: false } })}
                 />
                 <button
                   className="close-modal"
@@ -847,7 +859,7 @@ function Products() {
 
           {/* Секция продуктов */}
           <div className="products-section">
-            {products.length > 0 ? (
+            {state.products.length > 0 ? (
               <>
                 {/* Халяль блок */}
                 <div className="halal-box glass-effect">
@@ -874,7 +886,7 @@ function Products() {
                         >
                           <div className="best-seller-image-wrapper">
                             <LazyImage
-                              src={imageErrors[product.id] ? jpgPlaceholder : cachedImageUrls[product.id]}
+                              src={state.imageErrors[product.id] ? jpgPlaceholder : cachedImageUrls[product.id]}
                               alt={product.name}
                               placeholder={jpgPlaceholder}
                               className="best-seller-image"
@@ -887,7 +899,7 @@ function Products() {
                           </div>
                           <div className="best-seller-info">
                             <h3>{product.name}</h3>
-                            <p>{getDisplayPrice(product)}</p>
+                            <p>{getDisplayPrice(product, hasPriceVariants)}</p>
                           </div>
                         </div>
                       ))}
@@ -918,7 +930,7 @@ function Products() {
                                 onKeyDown={(e) => e.key === "Enter" && handleProductClick(product, category)}
                               >
                                 <LazyImage
-                                  src={imageErrors[product.id] ? jpgPlaceholder : cachedImageUrls[product.id]}
+                                  src={state.imageErrors[product.id] ? jpgPlaceholder : cachedImageUrls[product.id]}
                                   alt={product.name}
                                   placeholder={jpgPlaceholder}
                                   className="menu-product-image"
@@ -929,8 +941,7 @@ function Products() {
                                 />
                                 <div className="menu-product-info">
                                   <h3>{product.name}</h3>
-                                  <p className="title_prod">{product.description}</p>
-                                  <p>{getDisplayPrice(product)}</p>
+                                  <p>{getDisplayPrice(product, hasPriceVariants)}</p>
                                 </div>
                               </div>
                             ))}
@@ -944,11 +955,11 @@ function Products() {
                 </div>
 
                 {/* История заказов */}
-                {orderHistory.length > 0 && (
+                {state.orderHistory.length > 0 && (
                   <div className="order-history">
                     <h2 className="section-title">История заказов</h2>
                     <div className="history-items">
-                      {orderHistory.map((order) => (
+                      {state.orderHistory.map((order) => (
                         <div key={order.id} className="history-item glass-effect">
                           <p>Заказ #{order.id}</p>
                           <p>Сумма: {Number(order.total).toFixed(2)} сом</p>
@@ -968,9 +979,9 @@ function Products() {
       )}
 
       {/* Модальное окно продукта */}
-      {selectedProduct && (
+      {state.selectedProduct && (
         <div
-          className={`modal-overlay ${isProductModalOpen ? "open" : ""}`}
+          className={`modal-overlay ${state.isProductModalOpen ? "open" : ""}`}
           onClick={(e) => {
             if (e.target === e.currentTarget) closeProductModal();
           }}
@@ -992,32 +1003,32 @@ function Products() {
             </button>
             <div className="modal-body">
               <LazyImage
-                src={imageErrors[selectedProduct.product.id] ? jpgPlaceholder : cachedImageUrls[selectedProduct.product.id]}
-                alt={selectedProduct.product.name}
+                src={state.imageErrors[state.selectedProduct.product.id] ? jpgPlaceholder : cachedImageUrls[state.selectedProduct.product.id]}
+                alt={state.selectedProduct.product.name}
                 placeholder={jpgPlaceholder}
                 className="modal-image"
                 loading="eager"
                 sizes="(max-width: 600px) 200px, 300px"
-                onError={() => handleImageError(selectedProduct.product.id)}
-                onLoad={() => handleImageLoad(selectedProduct.product.id)}
+                onError={() => handleImageError(state.selectedProduct.product.id)}
+                onLoad={() => handleImageLoad(state.selectedProduct.product.id)}
               />
               <div className="modal-info">
-                <h1>{selectedProduct.product.name}</h1>
-                <p>{selectedProduct.product.description}</p>
-                {hasPriceVariants(selectedProduct.product) ? (
+                <h1>{state.selectedProduct.product.name}</h1>
+                <p>{state.selectedProduct.product.description}</p>
+                {hasPriceVariants(state.selectedProduct.product) ? (
                   <div className="variant-selection">
                     <h3>Выберите размер:</h3>
-                    {getPriceOptions(selectedProduct.product).map((option) => {
-                      const discountedPrice = calculateProductPrice(option.price, selectedProduct.product.discount_percent);
+                    {getPriceOptions(state.selectedProduct.product).map((option) => {
+                      const discountedPrice = calculateProductPrice(option.price, state.selectedProduct.product.discount_percent);
                       return (
                         <button
                           key={option.key}
-                          className={`variant-btn ${selectedVariant === option.key ? "selected" : ""}`}
-                          onClick={() => setSelectedVariant(option.key)}
-                          aria-pressed={selectedVariant === option.key}
+                          className={`variant-btn ${state.selectedVariant === option.key ? "selected" : ""}`}
+                          onClick={() => dispatch({ type: "SET_STATE", payload: { selectedVariant: option.key } })}
+                          aria-pressed={state.selectedVariant === option.key}
                         >
                           {option.label}{" "}
-                          {selectedProduct.product.discount_percent ? (
+                          {state.selectedProduct.product.discount_percent ? (
                             <>
                               <span className="original-price">{option.price} сом</span>{" "}
                               <span className="discounted-price">{discountedPrice.toFixed(2)} сом</span>
@@ -1030,17 +1041,17 @@ function Products() {
                     })}
                   </div>
                 ) : (
-                  <p>{getDisplayPrice(selectedProduct.product)}</p>
+                  <p>{getDisplayPrice(state.selectedProduct.product, hasPriceVariants)}</p>
                 )}
-                {hasTasteVariants(selectedProduct.product) && (
+                {hasTasteVariants(state.selectedProduct.product) && (
                   <div className="variant-selection">
                     <h3>Выберите вкус:</h3>
-                    {selectedProduct.product.variants.map((variant) => (
+                    {state.selectedProduct.product.variants.map((variant) => (
                       <button
                         key={variant.name}
-                        className={`variant-btn ${selectedTasteVariant === variant.name ? "selected" : ""}`}
-                        onClick={() => setSelectedTasteVariant(variant.name)}
-                        aria-pressed={selectedTasteVariant === variant.name}
+                        className={`variant-btn ${state.selectedTasteVariant === variant.name ? "selected" : ""}`}
+                        onClick={() => dispatch({ type: "SET_STATE", payload: { selectedTasteVariant: variant.name } })}
+                        aria-pressed={state.selectedTasteVariant === variant.name}
                       >
                         {variant.name} {variant.additionalPrice > 0 ? `(+${variant.additionalPrice} сом)` : ""}
                       </button>
@@ -1055,7 +1066,7 @@ function Products() {
                   <FiShoppingCart size={18} />
                   Добавить в корзину
                 </button>
-                {errorMessage && <p className="error">{errorMessage}</p>}
+                {state.errorMessage && <p className="error">{state.errorMessage}</p>}
               </div>
             </div>
           </div>
@@ -1063,10 +1074,10 @@ function Products() {
       )}
 
       {/* Корзина */}
-      <Cart cartItems={cartItems} onClick={handleCartOpen} />
-      {isCartOpen && (
-        <div className={`cart-panel glass-effect ${isCartOpen ? "open" : ""}`} aria-modal="true" role="dialog">
-          {cartItems.length === 0 ? (
+      <Cart cartItems={state.cartItems} onClick={handleCartOpen} />
+      {state.isCartOpen && (
+        <div className={`cart-panel glass-effect ${state.isCartOpen ? "open" : ""}`} aria-modal="true" role="dialog">
+          {state.cartItems.length === 0 ? (
             <div className="empty-cart">
               <p>Корзина пуста</p>
               <button
@@ -1081,25 +1092,25 @@ function Products() {
             <>
               <div className="cart-header">
                 <button
-                  className={`tab-btn ${!isOrderSection ? "active" : ""}`}
-                  onClick={() => setIsOrderSection(false)}
-                  aria-selected={!isOrderSection}
+                  className={`tab-btn ${!state.isOrderSection ? "active" : ""}`}
+                  onClick={() => dispatch({ type: "SET_STATE", payload: { isOrderSection: false } })}
+                  aria-selected={!state.isOrderSection}
                 >
                   Доставка
                 </button>
                 <button
-                  className={`tab-btn ${isOrderSection ? "active" : ""}`}
-                  onClick={() => setIsOrderSection(true)}
-                  aria-selected={isOrderSection}
+                  className={`tab-btn ${state.isOrderSection ? "active" : ""}`}
+                  onClick={() => dispatch({ type: "SET_STATE", payload: { isOrderSection: true } })}
+                  aria-selected={state.isOrderSection}
                 >
                   С собой
                 </button>
               </div>
               <div className="cart-items">
-                {cartItems.map((item) => (
+                {state.cartItems.map((item) => (
                   <div key={item.id} className="cart-item glass-effect">
                     <LazyImage
-                      src={imageErrors[item.id] ? jpgPlaceholder : cachedImageUrls[item.id]}
+                      src={state.imageErrors[item.id] ? jpgPlaceholder : cachedImageUrls[item.id]}
                       alt={item.name}
                       placeholder={jpgPlaceholder}
                       className="cart-item-image"
@@ -1140,7 +1151,7 @@ function Products() {
               <div className="cart-footer">
                 <div className="total">
                   Итого:{" "}
-                  {discount > 0 ? (
+                  {state.discount > 0 ? (
                     <>
                       <span className="original-total">{calculateTotal.total} сом</span>{" "}
                       <span>{calculateTotal.discountedTotal} сом</span>
@@ -1153,39 +1164,39 @@ function Products() {
                   <input
                     type="text"
                     placeholder="Промокод"
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value)}
+                    value={state.promoCode}
+                    onChange={(e) => dispatch({ type: "SET_STATE", payload: { promoCode: e.target.value } })}
                     aria-label="Ввести промокод"
                   />
                   <button onClick={handlePromoCodeSubmit} aria-label="Применить промокод">
                     Применить
                   </button>
                 </div>
-                {isOrderSection ? (
+                {state.isOrderSection ? (
                   <div className="order-form">
                     <input
                       type="text"
                       name="name"
-                      value={orderDetails.name}
+                      value={state.orderDetails.name}
                       onChange={handleOrderChange}
                       placeholder="Имя"
                       aria-label="Имя"
-                      aria-invalid={!!formErrors.name}
+                      aria-invalid={!!state.formErrors.name}
                     />
-                    {formErrors.name && <p className="error">{formErrors.name}</p>}
+                    {state.formErrors.name && <p className="error">{state.formErrors.name}</p>}
                     <input
                       type="text"
                       name="phone"
-                      value={orderDetails.phone}
+                      value={state.orderDetails.phone}
                       onChange={handleOrderChange}
                       placeholder="+996123456789"
                       aria-label="Телефон"
-                      aria-invalid={!!formErrors.phone}
+                      aria-invalid={!!state.formErrors.phone}
                     />
-                    {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+                    {state.formErrors.phone && <p className="error">{state.formErrors.phone}</p>}
                     <textarea
                       name="comments"
-                      value={orderDetails.comments}
+                      value={state.orderDetails.comments}
                       onChange={handleOrderChange}
                       placeholder="Комментарии"
                       aria-label="Комментарии к заказу"
@@ -1196,38 +1207,36 @@ function Products() {
                     <input
                       type="text"
                       name="name"
-                      value={deliveryDetails.name}
+                      value={state.deliveryDetails.name}
                       onChange={handleDeliveryChange}
-
                       placeholder="Имя"
                       aria-label="Имя"
-                      
-                      aria-invalid={!!formErrors.name}
+                      aria-invalid={!!state.formErrors.name}
                     />
-                    {formErrors.name && <p className="error">{formErrors.name}</p>}
+                    {state.formErrors.name && <p className="error">{state.formErrors.name}</p>}
                     <input
                       type="text"
                       name="phone"
-                      value={deliveryDetails.phone}
+                      value={state.deliveryDetails.phone}
                       onChange={handleDeliveryChange}
                       placeholder="+996123456789"
                       aria-label="Телефон"
-                      aria-invalid={!!formErrors.phone}
+                      aria-invalid={!!state.formErrors.phone}
                     />
-                    {formErrors.phone && <p className="error">{formErrors.phone}</p>}
+                    {state.formErrors.phone && <p className="error">{state.formErrors.phone}</p>}
                     <input
                       type="text"
                       name="address"
-                      value={deliveryDetails.address}
+                      value={state.deliveryDetails.address}
                       onChange={handleDeliveryChange}
                       placeholder="Адрес доставки"
                       aria-label="Адрес доставки"
-                      aria-invalid={!!formErrors.address}
+                      aria-invalid={!!state.formErrors.address}
                     />
-                    {formErrors.address && <p className="error">{formErrors.address}</p>}
+                    {state.formErrors.address && <p className="error">{state.formErrors.address}</p>}
                     <textarea
                       name="comments"
-                      value={deliveryDetails.comments}
+                      value={state.deliveryDetails.comments}
                       onChange={handleDeliveryChange}
                       placeholder="Комментарии"
                       aria-label="Комментарии к доставке"
@@ -1255,12 +1264,12 @@ function Products() {
       )}
 
       {/* Уведомления */}
-      {isOrderSent && (
+      {state.isOrderSent && (
         <div className="order-confirmation glass-effect" role="alert">
           <p>Заказ успешно отправлен!</p>
         </div>
       )}
-      {isCartNotification && (
+      {state.isCartNotification && (
         <div className="cart-notification glass-effect" role="alert">
           <p>Товар добавлен в корзину!</p>
         </div>
