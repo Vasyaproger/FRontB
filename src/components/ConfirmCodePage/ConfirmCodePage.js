@@ -28,7 +28,7 @@ function ConfirmCodePage() {
     }
 
     try {
-      const response = await fetch('https://nukesul-brepb-651f.twc1.net/api/confirm-code', {
+      const response = await fetch('vasyaproger-backentboodai-543a.twc1.net/api/confirm-code', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

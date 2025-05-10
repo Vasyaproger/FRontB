@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword, signInWithPopup, RecaptchaVerifier } from 'firebase/auth';
+import { signInWithPhoneNumber, signInWithPopup, RecaptchaVerifier } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { AuthContext } from '../AuthContext';
 import { auth, googleProvider, db } from '../firebase';
 import './Lofginform.css';
 
 function Lofginform() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
+  const [showCodeInput, setShowCodeInput] = useState(false);
   const [verificationAnswer, setVerificationAnswer] = useState('');
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
@@ -21,15 +23,21 @@ function Lofginform() {
   const correctAnswer = today;
 
   useEffect(() => {
-    if (user.isLoggedIn && !showVerification) {
+    if (user.isLoggedIn && !showVerification && !showCodeInput) {
       navigate('/');
     }
-  }, [user, navigate, showVerification]);
+  }, [user, navigate, showVerification, showCodeInput]);
 
-  const handleSubmit = async (e) => {
+  const handlePhoneSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Введите email и пароль');
+    if (!phoneNumber) {
+      setError('Введите номер телефона');
+      return;
+    }
+    // Проверка формата номера телефона (например, +996123456789)
+    const phoneRegex = /^\+\d{10,12}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      setError('Неверный формат номера телефона (например, +996123456789)');
       return;
     }
     setError('');
@@ -57,8 +65,42 @@ function Lofginform() {
       });
       await window.recaptchaVerifier.render();
 
-      console.log('Вход пользователя...');
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('Отправка SMS с кодом подтверждения...');
+      const result = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+      setConfirmationResult(result);
+      setShowCodeInput(true);
+    } catch (error) {
+      console.error('Ошибка отправки SMS:', error.code, error.message);
+      switch (error.code) {
+        case 'auth/invalid-phone-number':
+          setError('Неверный формат номера телефона.');
+          break;
+        case 'auth/too-many-requests':
+          setError('Слишком много попыток. Попробуйте позже.');
+          break;
+        case 'auth/quota-exceeded':
+          setError('Лимит SMS превышен. Попробуйте позже.');
+          break;
+        default:
+          setError(`Ошибка: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCodeSubmit = async (e) => {
+    e.preventDefault();
+    if (!verificationCode) {
+      setError('Введите код подтверждения');
+      return;
+    }
+    setError('');
+    setLoading(true);
+
+    try {
+      console.log('Проверка кода подтверждения...');
+      const userCredential = await confirmationResult.confirm(verificationCode);
       const firebaseUser = userCredential.user;
 
       const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -68,29 +110,27 @@ function Lofginform() {
         await setDoc(userDocRef, {
           firstName: '',
           lastName: '',
-          phone: '',
-          email: firebaseUser.email,
+          phone: phoneNumber,
+          email: '',
           createdAt: new Date().toISOString(),
         });
       }
 
-      setEmail('');
-      setPassword('');
+      setPhoneNumber('');
+      setVerificationCode('');
+      setShowCodeInput(false);
       setShowVerification(true);
     } catch (error) {
-      console.error('Ошибка входа:', error.code, error.message);
+      console.error('Ошибка проверки кода:', error.code, error.message);
       switch (error.code) {
-        case 'auth/invalid-credential':
-          setError('Неверный email или пароль. Проверьте данные или зарегистрируйтесь.');
+        case 'auth/invalid-verification-code':
+          setError('Неверный код подтверждения.');
           break;
-        case 'auth/invalid-email':
-          setError('Некорректный формат email.');
-          break;
-        case 'auth/too-many-requests':
-          setError('Слишком много попыток. Попробуйте позже.');
+        case 'auth/code-expired':
+          setError('Код подтверждения истек. Попробуйте снова.');
           break;
         default:
-          setError(`Ошибка входа: ${error.message}`);
+          setError(`Ошибка: ${error.message}`);
       }
     } finally {
       setLoading(false);
@@ -143,47 +183,34 @@ function Lofginform() {
         <button className="back-button" onClick={() => navigate('/')}>
           Назад
         </button>
-        <h1 className="lf-title">{showVerification ? 'Подтверждение входа' : 'Вход'}</h1>
+        <h1 className="lf-title">
+          {showVerification ? 'Подтверждение входа' : showCodeInput ? 'Введите код' : 'Вход'}
+        </h1>
         <div className="lf-card">
           {error && <p className="lf-error">{error}</p>}
           {loading && <div className="lf-spinner">Загрузка...</div>}
           <div id="recaptcha-container"></div>
 
-          {!showVerification ? (
-            <form onSubmit={handleSubmit}>
+          {!showVerification && !showCodeInput ? (
+            <form onSubmit={handlePhoneSubmit}>
               <div className="lf-form-group">
-                <label className="lf-label" htmlFor="email">
-                  Email
+                <label className="lf-label" htmlFor="phone">
+                  Номер телефона
                 </label>
                 <input
-                  type="email"
-                  id="email"
+                  type="tel"
+                  id="phone"
                   className="lf-input-field"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
                   required
-                  placeholder="Введите email"
-                  disabled={loading}
-                />
-              </div>
-              <div className="lf-form-group">
-                <label className="lf-label" htmlFor="password">
-                  Пароль
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  className="lf-input-field"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="Введите пароль"
+                  placeholder="+996123456789"
                   disabled={loading}
                 />
               </div>
               <div className="lf-button-group">
                 <button type="submit" className="lf-button" disabled={loading}>
-                  {loading ? 'Входим...' : 'Войти'}
+                  {loading ? 'Отправка...' : 'Получить код'}
                 </button>
                 <button
                   type="button"
@@ -194,6 +221,27 @@ function Lofginform() {
                   Войти через Google
                 </button>
               </div>
+            </form>
+          ) : showCodeInput ? (
+            <form onSubmit={handleCodeSubmit}>
+              <div className="lf-form-group">
+                <label className="lf-label" htmlFor="code">
+                  Код подтверждения
+                </label>
+                <input
+                  type="text"
+                  id="code"
+                  className="lf-input-field"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  required
+                  placeholder="Введите код из SMS"
+                  disabled={loading}
+                />
+              </div>
+              <button type="submit" className="lf-button" disabled={loading}>
+                {loading ? 'Проверка...' : 'Подтвердить код'}
+              </button>
             </form>
           ) : (
             <div className="verification-step">
@@ -219,7 +267,7 @@ function Lofginform() {
             </div>
           )}
 
-          {!showVerification && (
+          {!showVerification && !showCodeInput && (
             <div className="lf-register-link">
               <p>
                 Нет аккаунта? <Link to="/register">Регистрация</Link>

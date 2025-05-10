@@ -36,6 +36,150 @@
   }
 }
 
+/* Секция баннеров */
+.banner-section {
+  position: relative;
+  margin: var(--spacing-xl) auto;
+  max-width: var(--container-max-width);
+  padding: 0 var(--spacing-md);
+  overflow: hidden;
+}
+
+.banner-carousel {
+  display: flex;
+  width: 100%;
+  transition: transform 0.5s ease;
+}
+
+.banner-item {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 300px;
+  border-radius: var(--radius-large);
+  overflow: hidden;
+  box-shadow: var(--shadow-light);
+}
+
+.banner-item.active {
+  animation: bannerSlide 0.5s ease-out;
+}
+
+.banner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.banner-image.loaded {
+  opacity: 1;
+  animation: imagePulse 0.5s ease-out;
+}
+
+.banner-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: var(--text-light);
+  padding: var(--spacing-lg);
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-medium);
+  max-width: 80%;
+}
+
+/* Продолжение стилей для баннеров */
+.banner-content h2 {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+  letter-spacing: var(--letter-spacing-heading);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.banner-content p {
+  font-size: var(--font-size-medium);
+  font-weight: 400;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.9;
+}
+
+.banner-button {
+  background: var(--gradient-primary);
+  color: var(--text-light);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border: none;
+  border-radius: var(--radius-medium);
+  font-size: var(--font-size-medium);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-default);
+  box-shadow: var(--shadow-light);
+}
+
+.banner-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  background: var(--primary-dark);
+}
+
+.banner-controls {
+  position: absolute;
+  bottom: var(--spacing-md);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.banner-prev, .banner-next {
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--text-light);
+  border: none;
+  border-radius: var(--radius-small);
+  width: 40px;
+  height: 40px;
+  font-size: var(--font-size-large);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.banner-prev:hover, .banner-next:hover {
+  background: var(--primary-color);
+  transform: scale(1.1);
+}
+
+.banner-indicators {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.banner-indicator {
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.banner-indicator.active {
+  background: var(--accent-color);
+  transform: scale(1.2);
+}
+
+
 .brand-name {
   font-size: 28px;
   font-weight: 1000;

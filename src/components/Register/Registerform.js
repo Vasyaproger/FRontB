@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword, signInWithPopup, RecaptchaVerifier } from 'firebase/auth';
+import { signInWithPhoneNumber, signInWithPopup, RecaptchaVerifier } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { AuthContext } from '../AuthContext';
 import { auth, googleProvider, db } from '../firebase';
@@ -13,14 +13,15 @@ const Registerform = () => {
     firstName: '',
     lastName: '',
     phone: '',
-    email: '',
-    password: '',
   });
+  const [verificationCode, setVerificationCode] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
-  const [verificationAnswer, setVerificationAnswer] = useState('');
+  const [showCodeInput, setShowCodeInput] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState(null);
+  const [verificationAnswer, setVerificationAnswer] = useState(''); // Добавлено состояние
 
   const secretQuestion = 'Какой у вас сегодня день?';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
@@ -31,10 +32,24 @@ const Registerform = () => {
     setFormData((prevData) => ({ ...prevData, [name]: value }));
   };
 
-  const handleRegister = async (e) => {
+  const handlePhoneSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setLoading(true);
+
+    if (!formData.firstName || !formData.lastName || !formData.phone) {
+      setErrorMessage('Заполните все поля');
+      setLoading(false);
+      return;
+    }
+
+    // Проверка формата номера телефона (например, +996123456789)
+    const phoneRegex = /^\+\d{10,12}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      setErrorMessage('Неверный формат номера телефона (например, +996123456789)');
+      setLoading(false);
+      return;
+    }
 
     try {
       // Проверка, что auth определён
@@ -58,37 +73,73 @@ const Registerform = () => {
       });
       await window.recaptchaVerifier.render();
 
-      console.log('Создание пользователя...');
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      const newFirebaseUser = userCredential.user;
-
-      await setDoc(doc(db, 'users', newFirebaseUser.uid), {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        email: formData.email,
-        createdAt: new Date().toISOString(),
-      });
-
-      setFirebaseUser(newFirebaseUser);
-      setShowVerification(true);
+      console.log('Отправка SMS с кодом подтверждения...');
+      const result = await signInWithPhoneNumber(auth, formData.phone, window.recaptchaVerifier);
+      setConfirmationResult(result);
+      setShowCodeInput(true);
     } catch (error) {
-      console.error('Ошибка регистрации:', error.code, error.message);
+      console.error('Ошибка отправки SMS:', error.code, error.message);
       switch (error.code) {
-        case 'auth/email-already-in-use':
-          setErrorMessage('Этот email уже зарегистрирован.');
-          break;
-        case 'auth/invalid-email':
-          setErrorMessage('Некорректный формат email.');
-          break;
-        case 'auth/weak-password':
-          setErrorMessage('Пароль слишком слабый (минимум 6 символов).');
+        case 'auth/invalid-phone-number':
+          setErrorMessage('Неверный формат номера телефона.');
           break;
         case 'auth/too-many-requests':
           setErrorMessage('Слишком много попыток. Попробуйте позже.');
           break;
+        case 'auth/quota-exceeded':
+          setErrorMessage('Лимит SMS превышен. Попробуйте позже.');
+          break;
         default:
-          setErrorMessage(`Ошибка регистрации: ${error.message}`);
+          setErrorMessage(`Ошибка: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCodeSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setLoading(true);
+
+    if (!verificationCode) {
+      setErrorMessage('Введите код подтверждения');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Проверка кода подтверждения...');
+      const userCredential = await confirmationResult.confirm(verificationCode);
+      const newFirebaseUser = userCredential.user;
+
+      const userDocRef = doc(db, 'users', newFirebaseUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone,
+          email: '',
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      setFirebaseUser(newFirebaseUser);
+      setShowCodeInput(false);
+      setShowVerification(true);
+    } catch (error) {
+      console.error('Ошибка проверки кода:', error.code, error.message);
+      switch (error.code) {
+        case 'auth/invalid-verification-code':
+          setErrorMessage('Неверный код подтверждения.');
+          break;
+        case 'auth/code-expired':
+          setErrorMessage('Код подтверждения истек. Попробуйте снова.');
+          break;
+        default:
+          setErrorMessage(`Ошибка: ${error.message}`);
       }
     } finally {
       setLoading(false);
@@ -100,6 +151,7 @@ const Registerform = () => {
     setLoading(true);
 
     try {
+      console.log('Регистрация через Google...');
       const result = await signInWithPopup(auth, googleProvider);
       const newFirebaseUser = result.user;
 
@@ -142,14 +194,18 @@ const Registerform = () => {
         <button className="back-button" onClick={() => navigate('/')}>
           Назад
         </button>
-        <h1 className="register-title">Регистрация</h1>
-        <p className="register-subtitle">Создайте аккаунт, чтобы оформить заказ</p>
+        <h1 className="register-title">
+          {showVerification ? 'Подтверждение регистрации' : showCodeInput ? 'Введите код' : 'Регистрация'}
+        </h1>
+        <p className="register-subtitle">
+          {showVerification || showCodeInput ? '' : 'Создайте аккаунт, чтобы оформить заказ'}
+        </p>
         {errorMessage && <p className="error-message">{errorMessage}</p>}
         {loading && <div className="spinner">Загрузка...</div>}
         <div id="recaptcha-container"></div>
 
-        {!showVerification ? (
-          <form className="register-form" onSubmit={handleRegister}>
+        {!showVerification && !showCodeInput ? (
+          <form className="register-form" onSubmit={handlePhoneSubmit}>
             <div className="form-group">
               <label htmlFor="firstName">Имя</label>
               <input
@@ -184,7 +240,7 @@ const Registerform = () => {
                 type="tel"
                 id="phone"
                 name="phone"
-                placeholder="Введите ваш номер телефона"
+                placeholder="+996123456789"
                 className="form-input5"
                 value={formData.phone}
                 onChange={handleInputChange}
@@ -192,36 +248,8 @@ const Registerform = () => {
                 disabled={loading}
               />
             </div>
-            <div className="form-group">
-              <label htmlFor="email">Электронная почта</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                placeholder="Введите ваш email"
-                className="form-input5"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-                disabled={loading}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="password">Пароль</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                placeholder="Придумайте пароль"
-                className="form-input5"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-                disabled={loading}
-              />
-            </div>
             <button type="submit" className="register-button" disabled={loading}>
-              {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+              {loading ? 'Отправка...' : 'Получить код'}
             </button>
             <button
               type="button"
@@ -230,6 +258,26 @@ const Registerform = () => {
               disabled={loading}
             >
               Зарегистрироваться через Google
+            </button>
+          </form>
+        ) : showCodeInput ? (
+          <form className="register-form" onSubmit={handleCodeSubmit}>
+            <div className="form-group">
+              <label htmlFor="code">Код подтверждения</label>
+              <input
+                type="text"
+                id="code"
+                name="code"
+                placeholder="Введите код из SMS"
+                className="form-input5"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+            <button type="submit" className="register-button" disabled={loading}>
+              {loading ? 'Проверка...' : 'Подтвердить код'}
             </button>
           </form>
         ) : (

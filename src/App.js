@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'r
 import { AuthProvider } from './components/AuthContext';
 import Loader from './components/Loader/Loader';
 import './App.css';
+import BannerDetail from './components/BannerDetail';
 
 // Динамическая загрузка компонентов
 const Nav = React.lazy(() => import('./components/Nav'));
@@ -15,6 +16,7 @@ const Aboud = React.lazy(() => import('./components/Aboud'));
 const LoginForm = React.lazy(() => import('./components/Login/Lofginform'));
 const Registerform = React.lazy(() => import('./components/Register/Registerform'));
 const ConfirmCodePage = React.lazy(() => import('./components/ConfirmCodePage/ConfirmCodePage'));
+
 const Profile = React.lazy(() => import('./components/Profile'));
 
 function NavWrapper({ children }) {
@@ -87,6 +89,7 @@ function App() {
               <Route path="/confirm-code" element={<ConfirmCodePage />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<Navigate to="/" />} />
+              <Route path="/banner/:bannerId" element={<BannerDetail />} />
             </Routes>
           </Suspense>
         </NavWrapper>

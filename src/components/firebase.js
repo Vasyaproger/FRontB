@@ -1,6 +1,7 @@
 import { initializeApp, setLogLevel } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, RecaptchaVerifier } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // Включить отладку Firebase
 setLogLevel('debug');
@@ -19,5 +20,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 const db = getFirestore(app);
+const storage = getStorage(app);
 
-export { auth, googleProvider, db, RecaptchaVerifier };
+export { auth, googleProvider, db, storage, RecaptchaVerifier };
